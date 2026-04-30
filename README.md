@@ -1,136 +1,146 @@
-# Coverage Ghost
+# Coverage Ghost (Lumen)
 
-AI-powered spatial insurance companion — XRCC 2026, PICO / WebSpatial track.
+AI-powered spatial insurance claims companion — XRCC 2026, PICO / WebSpatial track.
 
 ---
 
 ## Prerequisites
 
-- Node.js 20+ — [nodejs.org](https://nodejs.org) (LTS)
-- Git
-- Anthropic API key — [api.anthropic.com](https://api.anthropic.com)
-- Android Studio + PICO Emulator (for PICO testing)
+- Node.js 20+ — [nodejs.org](https://nodejs.org)
+- `car_burnout_converted.spz` asset (included in zip)
 
 ---
 
 ## Setup
 
-### 1. Clone
+### 1. Install dependencies
 
 ```bash
-git clone https://github.com/ruheengl/CoverageGhost.git
-cd coverageghost
+cd backend && npm install
+cd ../frontend && npm install
 ```
 
-### 2. Frontend
+If you get a Three.js peer conflict:
 
 ```bash
 cd frontend
-npm install
+npm uninstall three && npm install three@0.180.0 && npm install
 ```
 
-If you get a Three.js peer dependency conflict:
+### 2. AI Backend — choose one option
 
-```bash
-npm uninstall three
-npm install three@0.180.0
-npm install
-```
+---
 
-### 3. Backend
+#### Option A — Use our deployed backend (easiest, no setup)
 
-```bash
-cd ../backend
-npm install
-```
-
-### 4. Environment variables
-
-Create `backend/.env`:
+Set this environment variable on the **frontend** only:
 
 ```env
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-VID2SCENE_API_KEY=your-key-here
-LUMA_API_KEY=your-key-here
+VITE_API_URL=https://coverageghost.onrender.com
+```
+
+Skip the backend install and backend `.env` entirely. The frontend will call our hosted backend directly.
+
+---
+
+#### Option B — Run backend locally with your own OpenAI key
+
+> The TAMU AI Chat API is restricted to Texas A&M University students and cannot be used by external judges.
+
+**Step 1** — Change `backend/lib/tamusChat.js` line 53:
+
+```js
+// from (TAMU endpoint path):
+const response = await fetch(`${getApiBaseUrl()}/api/chat/completions`, {
+
+// to (OpenAI endpoint path):
+const response = await fetch(`${getApiBaseUrl()}/v1/chat/completions`, {
+```
+
+**Step 2** — Create `backend/.env`:
+
+```env
+TAMUS_AI_CHAT_API_KEY=sk-...your-openai-key
+TAMUS_AI_CHAT_API_ENDPOINT=https://api.openai.com
+TAMUS_AI_CHAT_MODEL=gpt-4o
 PORT=3001
 ```
 
-### 5. Add asset files
-## Running
+Model must support **vision** (image input). Works with any OpenAI-compatible provider — change the endpoint and key accordingly.
 
-Start both servers in separate terminals.
+---
 
-**Backend:**
+### 3. Place asset file
+
+Get a `final_car.spz` into `backend/assets/`. Do not rename it.
+
+---
+
+## Running Locally
+
+Start both servers in separate terminals:
+
+**Backend** (skip if using Option A):
 ```bash
 cd backend
 node server.js
-# Backend on port 3001
+# Runs on port 3001
 ```
 
 **Frontend:**
 ```bash
 cd frontend
 npm run dev
-# Local:   http://localhost:5173
-# Network: http://192.168.x.x:5173
+# Local:   https://localhost:5173
+# Network: https://192.168.x.x:5173
 ```
 
-Open `http://localhost:5173` in a browser to confirm it loads.
+> Vite runs HTTPS (required for camera access). On first visit you will see a self-signed cert warning — click **Advanced → Proceed**.
 
 ---
 
-## Testing on Apple Vision Pro
+## Deploying to Production (Render / any host)
 
-Vision Pro and your machine must be on the same WiFi network.
+Frontend and backend are separate services. Set on the **frontend** service:
 
-**1. Find your local IP:**
-
-Windows:
-```cmd
-ipconfig
-# Look for IPv4 Address under WiFi adapter
+```env
+VITE_API_URL=https://your-backend-url.onrender.com
 ```
 
-Mac:
-```bash
-ipconfig getifaddr en0
-```
-
-**2. Open Safari on Vision Pro and navigate to:**
-
-```
-http://YOUR_IP:5173
-```
-
-That's it. No packaging or Xcode needed. WebSpatial spatial features work directly in Vision Pro's browser.
-
-> If Vision Pro can't connect — allow port 5173 through Windows Firewall:
-> Windows Security → Firewall → Advanced settings → Inbound Rules → New Rule → Port → TCP → 5173 → Allow
+Leave `VITE_API_URL` unset for local development — falls back to `/api` (Vite proxy).
 
 ---
 
-## Testing on PICO Emulator (Windows)
+## Testing on Meta Quest 3 (primary target)
 
-### One-time setup
+1. Connect Quest and your machine to the same WiFi network
+2. Find your machine's local IP:
+   - Windows: `ipconfig` → IPv4 Address under WiFi adapter
+   - Mac: `ipconfig getifaddr en0`
+3. Open Meta Quest Browser and navigate to `https://YOUR_IP:5173`
+4. Accept the self-signed cert: tap **Advanced → Proceed**
+5. If camera is blocked: Quest Settings → Apps → Browser → Permissions → Camera → Allow
 
-1. Install Android Studio — [developer.android.com/studio](https://developer.android.com/studio)
-2. Follow the PICO Emulator setup guide: `developer.picoxr.com/document/unity-swan/pico-emulator/`
-3. Watch the setup video first (10 min): `youtube.com/playlist?list=PLRQI9ZSqDkKdqhIYyEMu3f1g3SyzpfZn4`
-
-### Running
-
-1. Start the frontend dev server (`npm run dev`)
-2. Launch the PICO Emulator from Android Studio
-3. Open the browser inside the emulator
-4. Navigate to your **Network URL** (not localhost): `http://192.168.x.x:5173`
-
-> If the emulator can't connect — same fix as above, allow port 5173 in Windows Firewall.
+WebXR AR passthrough and camera work natively in Meta Quest Browser. No packaging needed.
 
 ---
 
-## Note on webspatial-builder
+## Testing on PICO (emulator or device)
 
-`webspatial-builder run` requires macOS + Xcode and **will not work on Windows**. For development, use the browser testing method above. The builder is only needed for App Store submission on a Mac.
+1. Start frontend dev server (`npm run dev`)
+2. Launch PICO Emulator from Android Studio **or** use a real PICO 4 on same WiFi
+3. Open browser and navigate to `https://YOUR_IP:5173`
+4. Accept the self-signed cert
+
+WebSpatial APIs work directly in PICO OS 6 browser — no `webspatial-builder` needed.
+
+---
+
+## Windows Firewall (if headset can't connect)
+
+Allow port 5173 inbound:
+
+Windows Security → Firewall → Advanced settings → Inbound Rules → New Rule → Port → TCP → 5173 → Allow
 
 ---
 
@@ -138,8 +148,11 @@ That's it. No packaging or Xcode needed. WebSpatial spatial features work direct
 
 | Error | Fix |
 |---|---|
-| `Cannot resolve '@webspatial/builder/vite'` | Remove the import from `vite.config.js` — no WebSpatial Vite plugin needed |
-| `'xcodebuild' is not recognized` | Can't run `webspatial-builder` on Windows — use browser testing instead |
-| Three.js peer conflict | `npm uninstall three && npm install three@0.180.0` |
-| Emulator/Vision Pro can't connect | Allow port 5173 in Windows Firewall inbound rules |
-| All Coverage Ghost wireframes gray | GLB mesh names don't match Claude output — check names at `gltf.report` |
+| Three.js peer conflict | `npm uninstall three && npm install three@0.180.0 && npm install` |
+| Headset can't connect | Allow port 5173 in Windows Firewall (see above) |
+| Camera blocked on Quest | Quest Settings → Apps → Browser → Permissions → Camera → Allow |
+| Self-signed cert error | Click Advanced → Proceed on first visit |
+| 3D asset not visible (deployed) | Set `VITE_API_URL` on frontend service pointing to backend URL |
+| AI calls failing (non-TAMU) | Follow Option B — change endpoint path in `tamusChat.js` + use OpenAI key |
+| Gray wireframes in coverage overlay | GLB mesh names don't match AI output — inspect at [gltf.report](https://gltf.report) |
+| `'xcodebuild' is not recognized` | `webspatial-builder` requires macOS — use browser testing instead |
