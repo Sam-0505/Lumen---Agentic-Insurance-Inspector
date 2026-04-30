@@ -13,7 +13,7 @@ const isVisionPro = /visionOS/.test(navigator.userAgent);
 
 const inWebSpatial = /WebSpatial\//.test(navigator.userAgent);
 const isVisionSpatial = isVisionPro || inWebSpatial;
-const SPLAT_URL = '/api/splat';
+const SPLAT_URL = `${import.meta.env.VITE_API_URL ?? '/api'}/splat`;
 const SPIN = ['◐', '◓', '◑', '◒'];
 
 const CARD = {
