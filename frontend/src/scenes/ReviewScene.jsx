@@ -27,7 +27,10 @@ export default function ReviewScene({ claim, damageData, coverageDecisions = [],
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL ?? '/api'}/scan-frames/latest`)
       .then(r => r.json())
-      .then(data => setFrames(data.frames || []))
+      .then(data => {
+        const base = import.meta.env.VITE_API_URL ?? '';
+        setFrames((data.frames || []).map(f => `${base}${f}`));
+      })
       .catch(() => {});
   }, []);
 
