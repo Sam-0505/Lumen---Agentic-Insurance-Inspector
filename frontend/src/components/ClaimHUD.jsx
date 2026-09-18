@@ -3,7 +3,7 @@ import { enableXRLayer } from '../lib/enableXRLayer';
 export default function ClaimHUD({ claimId, adjuster, stage, progress }) {
   return (
     <div style={{
-      position: 'fixed', top: 20, left: '50%',
+      position: 'fixed', top: 'max(20px, env(safe-area-inset-top))', left: '50%',
       transform: 'translateX(-50%)',
       padding: '10px 24px',
       background: 'rgba(26,60,239,0.15)',
@@ -11,7 +11,11 @@ export default function ClaimHUD({ claimId, adjuster, stage, progress }) {
       borderRadius: 40,
       border: '1px solid rgba(26,60,239,0.4)',
       color: 'white', fontFamily: 'Arial',
-      display: 'flex', gap: 24, alignItems: 'center',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      // Headsets render this wide; phones need it to shrink and wrap instead of
+      // overflowing the viewport.
+      gap: 'clamp(8px, 3vw, 24px)', rowGap: 4, flexWrap: 'wrap',
+      maxWidth: 'calc(100vw - 24px)', boxSizing: 'border-box',
       ...enableXRLayer({ zOffset: 0.1 })
     }}>
       <span style={{ fontSize: 12, opacity: 0.7 }}>Claim</span>

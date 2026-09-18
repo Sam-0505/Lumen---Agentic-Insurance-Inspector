@@ -5,9 +5,11 @@ import CameraBackground from './components/CameraBackground';
 import ScanScene from './scenes/ScanScene';
 import ImmersiveViewer from './components/ImmersiveViewer';
 import ReviewScene from './scenes/ReviewScene';
+import { useIsMobile } from './lib/useIsMobile';
 import './index.css';
 
 export default function App() {
+  const isMobile = useIsMobile();
   const [scene, setScene] = useState('login');
   const [claim, setClaim] = useState(null);
   const [damageData, setDamageData] = useState(null);
@@ -16,7 +18,15 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
-      {!inWebSpatial && <CameraBackground active />}
+      {/* Phones only have one camera to give out, and the capture screens need
+          it for a live viewfinder — so the passthrough backdrop is desktop/XR only. */}
+      {!inWebSpatial && !isMobile && <CameraBackground active />}
+      {isMobile && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 0,
+          background: 'linear-gradient(160deg, #1b1d29 0%, #24222e 55%, #14151c 100%)',
+        }} />
+      )}
       {scene === 'login' && (
         <LoginScene onLogin={(data) => { setClaim(data); setScene('scan'); }} />
       )}

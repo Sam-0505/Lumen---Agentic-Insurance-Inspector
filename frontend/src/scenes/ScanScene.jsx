@@ -3,7 +3,9 @@ import SideNav from '../components/SideNav';
 import PolicyCitation from '../components/PolicyCitation';
 import ClaimHUD from '../components/ClaimHUD';
 import ImmersiveScan from '../components/ImmersiveScan';
+import MobileScan from '../components/MobileScan';
 import { enableXRLayer } from '../lib/enableXRLayer';
+import { useIsMobile } from '../lib/useIsMobile';
 import { checkCoverage, ocrDocument } from '../lib/api';
 
 const isVisionPro = /visionOS/.test(navigator.userAgent);
@@ -24,8 +26,60 @@ const CARD = {
   border: '1px solid rgba(255,255,255,0.14)',
   boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
   padding: 28,
-  width: 480,
+  width: 'min(480px, calc(100vw - 32px))',
+  boxSizing: 'border-box',
 };
+
+// On a phone a centred 480px panel swallows the viewport, which matters most on
+// the capture steps where the camera needs to stay visible behind it.
+const SHEET = {
+  background: 'rgba(26,26,31,0.92)',
+  backdropFilter: 'blur(24px)',
+  WebkitBackdropFilter: 'blur(24px)',
+  borderRadius: '22px 22px 0 0',
+  borderTop: '1px solid rgba(255,255,255,0.16)',
+  boxShadow: '0 -10px 44px rgba(0,0,0,0.55)',
+  padding: '20px 18px max(20px, env(safe-area-inset-bottom))',
+  position: 'fixed',
+  left: 0, right: 0, bottom: 0,
+  width: '100%',
+  maxHeight: '76vh',
+  overflowY: 'auto',
+  zIndex: 50,
+  boxSizing: 'border-box',
+};
+
+function useCard(extra) {
+  const isMobile = useIsMobile();
+  return { ...(isMobile ? SHEET : CARD), ...extra };
+}
+
+// Full-bleed viewfinder for the document/photo steps on phones.
+const VIEWFINDER = {
+  position: 'fixed', inset: 0, width: '100%', height: '100%',
+  objectFit: 'cover', zIndex: 0, background: '#000',
+};
+
+function FramingGuide({ hint }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none' }}>
+      <div style={{
+        position: 'absolute', left: '6%', right: '6%', top: '22%',
+        aspectRatio: '1.586', // ID-1 card ratio
+        border: '2px solid rgba(255,255,255,0.85)',
+        borderRadius: 14,
+        boxShadow: '0 0 0 100vmax rgba(0,0,0,0.45)',
+      }} />
+      <div style={{
+        position: 'absolute', left: 0, right: 0, top: 'max(16px, env(safe-area-inset-top))',
+        textAlign: 'center', color: 'white', fontSize: 13, fontWeight: 500,
+        textShadow: '0 1px 6px rgba(0,0,0,0.8)', padding: '0 20px',
+      }}>
+        {hint}
+      </div>
+    </div>
+  );
+}
 
 const DIVIDER = { height: 1, background: 'rgba(255,255,255,0.10)', margin: '16px 0' };
 
@@ -34,8 +88,9 @@ const STATUS_COLORS = { green: '#1a3cef', red: '#f87171', amber: '#fbbf24', gray
 // ─── Sub-screens ───────────────────────────────────────────────────────────────
 
 function TaskCard({ onStart, onDismiss }) {
+  const card = useCard();
   return (
-    <div className="fade-up" style={CARD}>
+    <div className="fade-up" style={card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', flexShrink: 0 }} />
         <div>
@@ -66,8 +121,9 @@ function TaskCard({ onStart, onDismiss }) {
 
 function UIQTokenScreen({ onVerify }) {
   const [token, setToken] = useState('');
+  const card = useCard();
   return (
-    <div className="fade-up" style={CARD}>
+    <div className="fade-up" style={card}>
       <div style={{ color: 'white', fontSize: 19, fontWeight: 700, marginBottom: 4 }}>UIQ Token</div>
       <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 16 }}>
         Enter the unique inspection token provided by HQ for this claim.
@@ -95,8 +151,9 @@ function UIQTokenScreen({ onVerify }) {
 }
 
 function DriverDetailsChoice({ onManual, onScan }) {
+  const card = useCard();
   return (
-    <div className="fade-up" style={CARD}>
+    <div className="fade-up" style={card}>
       <div style={{ color: 'white', fontSize: 19, fontWeight: 700, marginBottom: 4 }}>Driver Details</div>
       <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 16 }}>
         How would you like to input the driver&apos;s details?
@@ -114,6 +171,8 @@ function ScanLicenseScreen({ onCapture, onManual }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const isMobile = useIsMobile();
+  const card = useCard();
 
   useEffect(() => {
     if (isVisionSpatial) return;
@@ -150,13 +209,16 @@ function ScanLicenseScreen({ onCapture, onManual }) {
   }
 
   return (
-    <div className="fade-up" style={CARD}>
+    <>
+      <video ref={videoRef} autoPlay playsInline muted
+        style={isMobile ? VIEWFINDER : { display: 'none' }} />
+      {isMobile && <FramingGuide hint="Align the licence inside the frame" />}
+    <div className="fade-up" style={card}>
       <div style={{ color: 'white', fontSize: 19, fontWeight: 700, marginBottom: 4 }}>Scan Driver's License</div>
       <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 16 }}>
-        Point the camera at the license, then pull the trigger.
+        {isMobile ? 'Hold the licence steady, then tap Capture.' : 'Point the camera at the license, then pull the trigger.'}
       </div>
       <div style={DIVIDER} />
-      <video ref={videoRef} autoPlay playsInline muted style={{ display: 'none' }} />
       <button className="btn-primary spatial-btn" onClick={handleTrigger}
         style={{ borderRadius: 12, width: '100%', marginBottom: 10 }} disabled={busy}>
         {busy ? 'Reading…' : isVisionSpatial ? 'Continue' : 'Capture'}
@@ -172,12 +234,14 @@ function ScanLicenseScreen({ onCapture, onManual }) {
         <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Step 1 of 3</span>
       </div>
     </div>
+    </>
   );
 }
 
 function DriverDetailsResult({ driver, onCapturePhoto, onManual }) {
+  const card = useCard();
   return (
-    <div className="fade-up" style={CARD}>
+    <div className="fade-up" style={card}>
       <div style={{ color: 'white', fontSize: 19, fontWeight: 700, marginBottom: 16 }}>Driver Details</div>
       <div style={DIVIDER} />
       {[
@@ -211,6 +275,8 @@ function CapturePhotoScreen({ onCapture, onBack }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [preview, setPreview] = useState(null);
+  const isMobile = useIsMobile();
+  const card = useCard();
 
   useEffect(() => {
     if (isVisionSpatial) return;
@@ -246,14 +312,30 @@ function CapturePhotoScreen({ onCapture, onBack }) {
       .catch(() => { });
   }
 
+  const showViewfinder = isMobile && !preview;
   return (
-    <div className="fade-up" style={CARD}>
+    <>
+      <video ref={videoRef} autoPlay playsInline muted
+        style={showViewfinder ? VIEWFINDER : { display: 'none' }} />
+      {showViewfinder && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none' }}>
+          <div style={{
+            position: 'absolute', left: '18%', right: '18%', top: '16%',
+            aspectRatio: '0.78',
+            border: '2px solid rgba(255,255,255,0.85)',
+            borderRadius: '50% 50% 46% 46%',
+            boxShadow: '0 0 0 100vmax rgba(0,0,0,0.45)',
+          }} />
+        </div>
+      )}
+    <div className="fade-up" style={card}>
       <div style={{ color: 'white', fontSize: 19, fontWeight: 700, marginBottom: 4 }}>Driver Photo</div>
       <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 16 }}>
-        {preview ? 'Review the photo before continuing.' : 'Point the camera at the driver, then pull the trigger.'}
+        {preview ? 'Review the photo before continuing.'
+          : isMobile ? 'Frame the driver, then tap Capture.'
+          : 'Point the camera at the driver, then pull the trigger.'}
       </div>
       <div style={DIVIDER} />
-      <video ref={videoRef} autoPlay playsInline muted style={{ display: 'none' }} />
       {preview && (
         <img src={preview} alt="captured" style={{
           width: '100%', height: 200, objectFit: 'cover', borderRadius: 12, marginBottom: 16, display: 'block',
@@ -274,6 +356,7 @@ function CapturePhotoScreen({ onCapture, onBack }) {
         <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Step 2 of 3</span>
       </div>
     </div>
+    </>
   );
 }
 
@@ -281,6 +364,8 @@ function ScanVehicleRegScreen({ onCapture, onManual }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const isMobile = useIsMobile();
+  const card = useCard();
 
   useEffect(() => {
     if (isVisionSpatial) return;
@@ -317,13 +402,16 @@ function ScanVehicleRegScreen({ onCapture, onManual }) {
   }
 
   return (
-    <div className="fade-up" style={CARD}>
+    <>
+      <video ref={videoRef} autoPlay playsInline muted
+        style={isMobile ? VIEWFINDER : { display: 'none' }} />
+      {isMobile && <FramingGuide hint="Align the registration card inside the frame" />}
+    <div className="fade-up" style={card}>
       <div style={{ color: 'white', fontSize: 19, fontWeight: 700, marginBottom: 4 }}>Scan Vehicle Registration</div>
       <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 16 }}>
-        Point the camera at the registration card, then pull the trigger.
+        {isMobile ? 'Hold the card steady, then tap Capture.' : 'Point the camera at the registration card, then pull the trigger.'}
       </div>
       <div style={DIVIDER} />
-      <video ref={videoRef} autoPlay playsInline muted style={{ display: 'none' }} />
       <button className="btn-primary spatial-btn" onClick={handleTrigger}
         style={{ borderRadius: 12, width: '100%', marginBottom: 10 }} disabled={busy}>
         {busy ? 'Reading…' : isVisionSpatial ? 'Continue' : 'Capture'}
@@ -339,12 +427,14 @@ function ScanVehicleRegScreen({ onCapture, onManual }) {
         <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>Step 3 of 3</span>
       </div>
     </div>
+    </>
   );
 }
 
 function RegistrationDetailsResult({ reg, onContinue }) {
+  const card = useCard();
   return (
-    <div className="fade-up" style={CARD}>
+    <div className="fade-up" style={card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div style={{ color: 'white', fontSize: 19, fontWeight: 700 }}>Registration Details</div>
       </div>
@@ -375,8 +465,9 @@ function RegistrationDetailsResult({ reg, onContinue }) {
 }
 
 function VerifyPolicyDialog({ onDismiss, onVerify }) {
+  const card = useCard({ textAlign: 'center' });
   return (
-    <div className="fade-up" style={{ ...CARD, textAlign: 'center' }}>
+    <div className="fade-up" style={card}>
       <div style={{ color: 'white', fontSize: 19, fontWeight: 700, marginBottom: 8 }}>Verify Policy</div>
       <div style={{ color: 'rgba(255,255,255,0.50)', fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>
         Verify the captured information and check if coverage is active or not.
@@ -391,6 +482,7 @@ function VerifyPolicyDialog({ onDismiss, onVerify }) {
 
 function PolicyActiveScreen({ policyData, onProceed }) {
   const [loading, setLoading] = useState(false);
+  const card = useCard();
   const info = [
     ['Claimant', policyData.claimant || 'Jane D. Demo'],
     ['Policy #', policyData.policy_number || 'ALLST-2024-TX-00925'],
@@ -403,7 +495,7 @@ function PolicyActiveScreen({ policyData, onProceed }) {
     await onProceed();
   }
   return (
-    <div className="fade-up" style={CARD}>
+    <div className="fade-up" style={card}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
         <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e', flexShrink: 0 }} />
         <div style={{ color: 'white', fontSize: 19, fontWeight: 700 }}>Policy Active</div>
@@ -429,12 +521,13 @@ function PolicyActiveScreen({ policyData, onProceed }) {
 
 function LoadingScreen() {
   const [spinIdx, setSpinIdx] = useState(0);
+  const card = useCard();
   useEffect(() => {
     const t = setInterval(() => setSpinIdx(i => (i + 1) % 4), 220);
     return () => clearInterval(t);
   }, []);
   return (
-    <div className="fade-up" style={CARD}>
+    <div className="fade-up" style={card}>
       <div style={{ textAlign: 'center', padding: '24px 0' }}>
         <div style={{ fontSize: 38, color: '#1a3cef', marginBottom: 16 }}>{SPIN[spinIdx]}</div>
         <div style={{ color: 'white', fontSize: 17, fontWeight: 600, marginBottom: 8 }}>Preparing Scan</div>
@@ -456,10 +549,20 @@ export default function ScanScene({ claim, onComplete }) {
   const [voiceNotes, setVoiceNotes] = useState([]);
   const [spinIdx, setSpinIdx] = useState(0);
   const [scanError, setScanError] = useState('');
+  const [xrSupported, setXrSupported] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setSpinIdx(i => (i + 1) % 4), 220);
     return () => clearInterval(t);
+  }, []);
+
+  // Resolved ahead of the click so the handler can branch synchronously —
+  // requestSession must stay inside the user gesture with no await before it.
+  useEffect(() => {
+    if (!navigator.xr?.isSessionSupported) return;
+    navigator.xr.isSessionSupported('immersive-ar')
+      .then(ok => setXrSupported(!!ok))
+      .catch(() => setXrSupported(false));
   }, []);
 
   const [policyData] = useState({
@@ -530,6 +633,10 @@ export default function ScanScene({ claim, onComplete }) {
         <ImmersiveScan onCapture={handleImmersiveScan} onExit={() => { setScanError(''); setStep('retry'); }} xrSession={xrSession} />
       )}
 
+      {step === 'mobile-scan' && (
+        <MobileScan onCapture={handleImmersiveScan} onExit={() => { setScanError(''); setStep('policy-active'); }} />
+      )}
+
       <div style={{ position: 'relative', zIndex: 10 }}>
         {step === 'task' && (
           <TaskCard onStart={() => setStep('uiq')} onDismiss={() => { }} />
@@ -585,9 +692,10 @@ export default function ScanScene({ claim, onComplete }) {
               onComplete(damage, [], {}, SPLAT_URL, [], { nextScene: 'review' });
               return;
             }
+            if (!xrSupported) { setStep('mobile-scan'); return; }
             setStep('loading');
             // Start XR session immediately — must be called within user gesture context before any await
-            const sessionPromise = navigator.xr?.requestSession('immersive-ar', {
+            const sessionPromise = navigator.xr.requestSession('immersive-ar', {
               requiredFeatures: ['local-floor', 'unbounded'],
               optionalFeatures: ['hit-test', 'hand-tracking'],
             }).catch(e => { console.warn('[ScanScene] requestSession failed:', e.message); return null; });
@@ -603,6 +711,11 @@ export default function ScanScene({ claim, onComplete }) {
               });
             }
             const session = await sessionPromise;
+            if (!session) {
+              setScanError('Could not start an AR session on this device.');
+              setStep('retry');
+              return;
+            }
             setXrSession(session);
             setStep('scan');
           }} />
@@ -614,10 +727,16 @@ export default function ScanScene({ claim, onComplete }) {
             <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 20 }}>
               {scanError || 'The immersive session was closed. Tap retry to start again.'}
             </div>
-            <button className="btn-primary spatial-btn" onClick={() => { setScanError(''); setStep('scan'); }}
-              style={{ width: '100%', borderRadius: 12, padding: '13px' }}>
-              Retry
-            </button>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button className="btn-secondary spatial-btn" onClick={() => { setScanError(''); setStep('mobile-scan'); }}
+                style={{ flex: 1, borderRadius: 12, padding: '13px' }}>
+                Continue without AR
+              </button>
+              <button className="btn-primary spatial-btn" onClick={() => { setScanError(''); setStep('scan'); }}
+                style={{ flex: 1, borderRadius: 12, padding: '13px' }}>
+                Retry
+              </button>
+            </div>
           </div>
         )}
         {step === 'coverage' && (

@@ -39,10 +39,15 @@ export default function ReviewScene({ claim, damageData, coverageDecisions = [],
       <AppBackground />
       <SideNav active="report" />
 
-      <div style={{ position: 'relative', zIndex: 10, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+      <div style={{
+        position: 'relative', zIndex: 10, display: 'flex', gap: 16,
+        alignItems: 'flex-start', flexWrap: 'wrap', justifyContent: 'center',
+        maxWidth: '100%', padding: '16px', boxSizing: 'border-box',
+        maxHeight: '100vh', overflowY: 'auto',
+      }}>
 
         {/* ── Report card ── */}
-        <div style={{ ...CARD, padding: 20, width: 300 }}>
+        <div style={{ ...CARD, padding: 20, width: 'min(300px, calc(100vw - 32px))', boxSizing: 'border-box' }}>
           {/* Header */}
           <div style={{ color: 'white', fontSize: 19, fontWeight: 700 }}>Report Generation</div>
           <div style={{ color: TEXT_MUTED, fontSize: 13, marginTop: 4 }}>
@@ -89,7 +94,7 @@ export default function ReviewScene({ claim, damageData, coverageDecisions = [],
         </div>
 
         {/* ── Right column ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 260 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: 'min(260px, calc(100vw - 32px))' }}>
 
           {/* View in 3D button */}
           <button

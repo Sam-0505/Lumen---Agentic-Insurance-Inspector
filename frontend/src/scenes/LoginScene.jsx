@@ -19,7 +19,8 @@ export default function LoginScene({ onLogin }) {
         border: '1px solid rgba(255,255,255,0.14)',
         boxShadow: '0 12px 60px rgba(0,0,0,0.5)',
         padding: 10,
-        width: 420,
+        width: 'min(420px, calc(100vw - 24px))',
+        boxSizing: 'border-box',
       }}>
         {/* Purple inner card */}
         <div style={{

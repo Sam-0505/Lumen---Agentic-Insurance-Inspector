@@ -1,4 +1,5 @@
 import { enableXRLayer } from '../lib/enableXRLayer';
+import { useIsMobile } from '../lib/useIsMobile';
 
 const inWebSpatial = /WebSpatial\//.test(navigator.userAgent);
 
@@ -71,7 +72,12 @@ const EXIT_ITEM = {
   ),
 };
 
-export default function SideNav({ active, onNavigate, expanded = true }) {
+export default function SideNav({ active, onNavigate = () => {}, expanded = true }) {
+  // On phones the rail would sit on top of the claim cards, and it navigates
+  // nowhere yet, so it's dropped entirely rather than collapsed.
+  const isMobile = useIsMobile();
+  if (isMobile) return null;
+
   const navStyle = {
     position: 'fixed',
     left: 20,
