@@ -96,6 +96,40 @@ analyzeDamage error: TypeError: fetch failed
 
 ---
 
+## Session: September 18, 2026
+
+---
+
+### [BUG-08] All AI features silently returning placeholder data
+
+**Symptom:** Document/licence scan showed default values instead of reading the document; the final coverage report showed a fixed sample. No visible error anywhere.
+
+**Root cause:** Three independent faults stacked on top of each other:
+
+1. **Dead model (the actual break).** `tamusChat.js` defaulted to `protected.gemini-2.0-flash-lite`, which TAMU retired. Every AI call returned `400 {"detail":"Model not found"}` — OCR, damage analysis and coverage all failed. `.env` does not pin `TAMUS_AI_CHAT_MODEL`, so the code default was in use.
+2. **Errors swallowed.** `createChatCompletion` read only `error.message`/`message`, never `detail`, so the real reason became a bare `TAMUS AI error 400`. `api.js` then flattened that to `'checkCoverage failed'`, `ScanLicenseScreen` caught OCR failures and called `onCapture(null)`, and `handleImmersiveScan` downgraded coverage failures to `console.warn`.
+3. **Fabricated fallbacks.** `DriverDetailsResult` substituted `'Jane D. Demo'` / `'5463-78-7214'` etc. for missing fields; the `coverage` step rendered three hardcoded decisions labelled "Sample data"; `ReviewScene` did `void damageData; void coverageDecisions;` and rendered a static `claim-report.png`.
+
+Fault 1 broke the AI; faults 2 and 3 made the break look like a working demo.
+
+**Fix:**
+- `backend/lib/tamusChat.js` — default model → `protected.gpt-4.1-mini`; error extraction now includes `detail` and names the model.
+- `frontend/src/lib/api.js` — shared `post()` helper unwraps the backend's `{ error }` so real reasons reach the UI.
+- `frontend/src/scenes/ScanScene.jsx` — licence scan shows the error and stays put instead of advancing with `null`; unread driver fields render `—` with a warning banner; coverage failures surface as an error card instead of sample decisions.
+- `frontend/src/scenes/ReviewScene.jsx` — renders the live coverage decisions (colour-coded, policy sections, payout rollup, review flags) instead of the static PNG; submit disabled when there are no decisions.
+
+**Verified:** OCR extracted all fields from a test licence (name, DL no., address, DOB, expiry); `analyze-damage` correctly returned "no damage" on a non-vehicle frame; `check-coverage` returned real per-area decisions and cited episodic-memory precedent. All confirmed through the Vite proxy (the path the phone uses).
+
+**Note:** Claude models on this endpoint reject `temperature: 0` (`temperature may only be set to 1 when thinking is enabled`), so swapping to one requires changing the temperature. GPT/Gemini models are fine at 0.
+
+---
+
+### [FEAT-01] Episodic memory for past claims
+
+Added `backend/lib/episodicMemory.js` — `check-coverage` now retrieves the 3 most similar past claims (TF-IDF-style scoring, plain JS, no native deps), injects them as prompt context, and saves each decided claim back. Seeded from `backend/data/seedClaims.json` (12 fabricated claims — no public dataset carries the damage-zone → coverage-decision → policy-clause shape this needs). Store lives at `backend/data/episodicMemory.json` (gitignored); delete it to reset. Inspect via `GET /memory/claims` and `GET /memory/search?q=`; offline test at `backend/scripts/testEpisodicMemory.js`.
+
+---
+
 ## Known Limitations / Not Yet Fixed
 
 | Item | Notes |

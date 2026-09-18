@@ -171,6 +171,7 @@ function ScanLicenseScreen({ onCapture, onManual }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const isMobile = useIsMobile();
   const card = useCard();
 
@@ -191,18 +192,22 @@ function ScanLicenseScreen({ onCapture, onManual }) {
     if (isVisionSpatial) { onCapture(null); return; }
     if (!videoRef.current || busy) return;
     setBusy(true);
+    setError('');
     try {
       const canvas = document.createElement('canvas');
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
       canvas.getContext('2d').drawImage(videoRef.current, 0, 0);
       const b64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
-      stopStream();
       const data = await ocrDocument(b64, 'drivers_license');
-      onCapture(data);
-    } catch {
       stopStream();
-      onCapture(null);
+      onCapture(data);
+    } catch (err) {
+      // Stay on this screen and say what went wrong. Advancing with null here
+      // is what made a failed scan look like a successful one filled with
+      // placeholder details.
+      console.error('[ScanLicense] OCR failed:', err);
+      setError(err.message || 'Could not read the licence. Try again or enter details manually.');
     } finally {
       setBusy(false);
     }
@@ -219,9 +224,18 @@ function ScanLicenseScreen({ onCapture, onManual }) {
         {isMobile ? 'Hold the licence steady, then tap Capture.' : 'Point the camera at the license, then pull the trigger.'}
       </div>
       <div style={DIVIDER} />
+      {error && (
+        <div style={{
+          marginBottom: 10, padding: '10px 12px', borderRadius: 10,
+          background: 'rgba(248,113,113,0.14)', border: '1px solid rgba(248,113,113,0.4)',
+          color: '#fca5a5', fontSize: 12, lineHeight: 1.45,
+        }}>
+          {error}
+        </div>
+      )}
       <button className="btn-primary spatial-btn" onClick={handleTrigger}
         style={{ borderRadius: 12, width: '100%', marginBottom: 10 }} disabled={busy}>
-        {busy ? 'Reading…' : isVisionSpatial ? 'Continue' : 'Capture'}
+        {busy ? 'Reading…' : isVisionSpatial ? 'Continue' : error ? 'Retry Capture' : 'Capture'}
       </button>
       <button className="spatial-btn" onClick={() => { stopStream(); onManual(); }} style={{
         marginTop: 10, width: '100%', padding: '11px',
@@ -240,20 +254,36 @@ function ScanLicenseScreen({ onCapture, onManual }) {
 
 function DriverDetailsResult({ driver, onCapturePhoto, onManual }) {
   const card = useCard();
+  const rows = [
+    ['Name', driver.name],
+    ['Age', driver.age],
+    ['License No.', driver.license],
+    ['Address', driver.address],
+    ['Valid Until', driver.validity],
+  ];
+  const nothingRead = rows.every(([, value]) => !value);
   return (
     <div className="fade-up" style={card}>
       <div style={{ color: 'white', fontSize: 19, fontWeight: 700, marginBottom: 16 }}>Driver Details</div>
       <div style={DIVIDER} />
-      {[
-        ['Name', driver.name || 'Jane D. Demo'],
-        ['Age', driver.age || '26 years'],
-        ['License No.', driver.license || '5463-78-7214'],
-        ['Address', driver.address || '123 Sample St, City, ST 12345'],
-        ['Valid Until', driver.validity || 'December 31, 2030'],
-      ].map(([label, value]) => (
+      {nothingRead && (
+        <div style={{
+          marginBottom: 14, padding: '10px 12px', borderRadius: 10,
+          background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.4)',
+          color: '#fcd34d', fontSize: 12, lineHeight: 1.45,
+        }}>
+          Nothing was read from the licence. Use Edit Details to enter them manually.
+        </div>
+      )}
+      {/* Unread fields show a dash. They used to fall back to plausible-looking
+          sample values, which made a failed OCR read as a successful scan. */}
+      {rows.map(([label, value]) => (
         <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 11 }}>
           <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>{label}</span>
-          <span style={{ color: 'white', fontSize: 14, fontWeight: 500, textAlign: 'right', maxWidth: '55%' }}>{value}</span>
+          <span style={{
+            color: value ? 'white' : 'rgba(255,255,255,0.35)',
+            fontSize: 14, fontWeight: 500, textAlign: 'right', maxWidth: '55%',
+          }}>{value || '—'}</span>
         </div>
       ))}
       <div style={DIVIDER} />
@@ -549,6 +579,7 @@ export default function ScanScene({ claim, onComplete }) {
   const [voiceNotes, setVoiceNotes] = useState([]);
   const [spinIdx, setSpinIdx] = useState(0);
   const [scanError, setScanError] = useState('');
+  const [coverageError, setCoverageError] = useState('');
   const [xrSupported, setXrSupported] = useState(false);
 
   useEffect(() => {
@@ -585,7 +616,15 @@ export default function ScanScene({ claim, onComplete }) {
       };
       setDamageData(damage);
       let coverageResult = { coverage_decisions: [] };
-      try { coverageResult = await checkCoverage(damage); } catch (e) { console.warn('[ScanScene] checkCoverage failed:', e.message); }
+      try {
+        coverageResult = await checkCoverage(damage);
+        setCoverageError('');
+      } catch (e) {
+        // Previously only a console.warn, so a dead model surfaced as an empty
+        // report that looked like a finished one.
+        console.error('[ScanScene] checkCoverage failed:', e);
+        setCoverageError(e.message || 'Coverage analysis failed.');
+      }
       setCoverageDecisions(coverageResult.coverage_decisions || []);
       setStep('coverage');
     } catch (err) {
@@ -743,9 +782,13 @@ export default function ScanScene({ claim, onComplete }) {
           <div style={{ ...CARD, maxHeight: '80vh', overflowY: 'auto', position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 10000 }}>
             <div style={{ color: 'white', fontSize: 19, fontWeight: 700, marginBottom: 4 }}>Coverage Analysis</div>
             <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, marginBottom: 16 }}>
-              {coverageDecisions.length > 0 ? `${coverageDecisions.length} area${coverageDecisions.length !== 1 ? 's' : ''} assessed` : 'Sample data'}
+              {coverageDecisions.length > 0
+                ? `${coverageDecisions.length} area${coverageDecisions.length !== 1 ? 's' : ''} assessed`
+                : coverageError ? 'Analysis failed' : 'No damage areas returned'}
             </div>
             <div style={DIVIDER} />
+            {/* An empty result used to render three hardcoded sample decisions,
+                so an AI outage looked like a completed analysis. */}
             {coverageDecisions.length > 0 ? coverageDecisions.map((d, i) => (
               <div key={i} style={{
                 marginBottom: 10, padding: '10px 12px', borderRadius: 10,
@@ -760,20 +803,20 @@ export default function ScanScene({ claim, onComplete }) {
                   </div>
                 )}
               </div>
-            )) : ([
-              { area_name: 'Rear bumper', color: 'green', reason: 'Collision damage covered under comprehensive policy.' },
-              { area_name: 'Left rear door', color: 'amber', reason: 'Partial coverage — pre-existing damage noted, adjuster review required.' },
-              { area_name: 'Rear windshield', color: 'green', reason: 'Glass damage excluded under current deductible threshold.' },
-            ].map((d, i) => (
-              <div key={i} style={{
-                marginBottom: 10, padding: '10px 12px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.05)',
-                borderLeft: `3px solid ${STATUS_COLORS[d.color] || '#94a3b8'}`,
+            )) : (
+              <div style={{
+                padding: '14px', borderRadius: 10, textAlign: 'center',
+                background: coverageError ? 'rgba(248,113,113,0.12)' : 'rgba(255,255,255,0.05)',
+                border: `1px solid ${coverageError ? 'rgba(248,113,113,0.4)' : 'rgba(255,255,255,0.12)'}`,
               }}>
-                <div style={{ fontWeight: 600, fontSize: 13, color: 'white', marginBottom: 2 }}>{d.area_name}</div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>{d.reason}</div>
+                <div style={{ color: coverageError ? '#fca5a5' : 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                  {coverageError ? 'Coverage analysis unavailable' : 'No damage areas identified'}
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, lineHeight: 1.5 }}>
+                  {coverageError || 'The scan did not return any assessable damage areas. Re-scan the vehicle for a usable analysis.'}
+                </div>
               </div>
-            )))}
+            )}
             <div style={DIVIDER} />
             <button
               className="btn-primary spatial-btn"

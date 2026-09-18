@@ -11,8 +11,13 @@ function getApiBaseUrl() {
   return (process.env.TAMUS_AI_CHAT_API_ENDPOINT || 'https://chat-api.tamu.ai').replace(/\/$/, '');
 }
 
+// NOTE: 'protected.gemini-2.0-flash-lite' was retired from the TAMU AI catalog
+// and every call started failing with 400 {"detail":"Model not found"}, which
+// silently broke OCR, damage analysis and coverage. Check GET /api/models on
+// the endpoint for the current catalog before changing this.
+// gpt-4.1-mini: vision-capable, reliable JSON, ~3s round trip.
 function getDefaultModel() {
-  return process.env.TAMUS_AI_CHAT_MODEL || 'protected.gemini-2.0-flash-lite';
+  return process.env.TAMUS_AI_CHAT_MODEL || 'protected.gpt-4.1-mini';
 }
 
 function normalizeMessageContent(content) {
@@ -60,7 +65,14 @@ async function createChatCompletion({ messages, model = getDefaultModel(), tempe
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data?.error?.message || data?.message || `TAMUS AI error ${response.status}`);
+        // `detail` is where this API puts "Model not found" — without it the
+        // real reason is swallowed and every route just reports a bare 400.
+        const reason = data?.error?.message || data?.message || data?.detail;
+        throw new Error(
+          reason
+            ? `TAMUS AI error ${response.status} (model "${model}"): ${reason}`
+            : `TAMUS AI error ${response.status} (model "${model}"): ${JSON.stringify(data).slice(0, 300)}`
+        );
       }
       return data;
     } catch (err) {

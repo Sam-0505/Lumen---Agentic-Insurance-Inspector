@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import AppBackground from '../components/AppBackground';
 import SideNav from '../components/SideNav';
 import GaussianViewer from '../components/GaussianViewer';
+import { getColor } from '../lib/coverageColors';
 
 const CARD = {
   background: 'rgba(93,93,93,0.80)',
@@ -21,8 +22,13 @@ export default function ReviewScene({ claim, damageData, coverageDecisions = [],
   const [show3D] = useState(true);
   const [frames, setFrames] = useState([]);
   const [lightboxIdx, setLightboxIdx] = useState(null);
-  void damageData;
-  void coverageDecisions;
+
+  // Roll the per-area payout ranges up into a claim total.
+  const payout = coverageDecisions.reduce((acc, d) => ({
+    min: acc.min + (d.estimated_payout_usd?.min || 0),
+    max: acc.max + (d.estimated_payout_usd?.max || 0),
+  }), { min: 0, max: 0 });
+  const needsReview = coverageDecisions.filter(d => d.requires_human_review || d.color === 'gray');
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL ?? '/api'}/scan-frames/latest`)
@@ -55,19 +61,89 @@ export default function ReviewScene({ claim, damageData, coverageDecisions = [],
           </div>
           <div style={DIVIDER} />
 
-          {/* Claim report image */}
-          <div style={{
-            borderRadius: 10,
-            overflow: 'hidden',
-            border: '1px solid rgba(255,255,255,0.14)',
-            background: 'rgba(240,241,245,0.95)',
-          }}>
-            <img
-              src="/assets/claim-report.png"
-              alt="Claim Report"
-              style={{ width: '100%', display: 'block' }}
-            />
-          </div>
+          {/* Claim report — rendered from the live AI coverage decisions.
+              This was a static claim-report.png, so the report always looked
+              the same no matter what the scan actually found. */}
+          {coverageDecisions.length === 0 ? (
+            <div style={{
+              padding: '16px', borderRadius: 10, textAlign: 'center',
+              background: 'rgba(248,113,113,0.12)', border: '1px solid rgba(248,113,113,0.4)',
+            }}>
+              <div style={{ color: '#fca5a5', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                No coverage decisions available
+              </div>
+              <div style={{ color: TEXT_MUTED, fontSize: 11, lineHeight: 1.5 }}>
+                The damage analysis returned no assessable areas, so there is nothing to report.
+                Re-run the scan before submitting.
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              borderRadius: 10, padding: 14,
+              border: '1px solid rgba(255,255,255,0.14)',
+              background: 'rgba(0,0,0,0.22)',
+            }}>
+              {/* Claim header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ color: TEXT_MUTED, fontSize: 11 }}>Claim</span>
+                <span style={{ color: 'white', fontSize: 11, fontWeight: 600 }}>{claim?.claimId || '—'}</span>
+              </div>
+              {damageData?.damage_type && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ color: TEXT_MUTED, fontSize: 11 }}>Damage</span>
+                  <span style={{ color: 'white', fontSize: 11, fontWeight: 600, textAlign: 'right', maxWidth: '62%' }}>
+                    {damageData.damage_type}{damageData.severity ? ` · ${damageData.severity}` : ''}
+                  </span>
+                </div>
+              )}
+
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.10)', margin: '10px 0' }} />
+
+              {/* Per-area decisions */}
+              {coverageDecisions.map((d, i) => (
+                <div key={i} style={{
+                  marginBottom: 8, padding: '9px 10px', borderRadius: 8,
+                  background: 'rgba(255,255,255,0.05)',
+                  borderLeft: `3px solid ${getColor(d.color).hex}`,
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ color: 'white', fontSize: 12, fontWeight: 600 }}>{d.area_name}</span>
+                    <span style={{ color: getColor(d.color).hex, fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      {getColor(d.color).label.toUpperCase()}
+                    </span>
+                  </div>
+                  {d.reason && (
+                    <div style={{ color: TEXT_SECONDARY, fontSize: 11, marginTop: 3, lineHeight: 1.45 }}>{d.reason}</div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+                    {d.policy_section && (
+                      <span style={{ color: TEXT_MUTED, fontSize: 10 }}>§ {d.policy_section}</span>
+                    )}
+                    {d.estimated_payout_usd && (
+                      <span style={{ color: TEXT_MUTED, fontSize: 10 }}>
+                        ${d.estimated_payout_usd.min}–${d.estimated_payout_usd.max}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.10)', margin: '10px 0' }} />
+
+              {/* Total */}
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'white', fontSize: 12, fontWeight: 700 }}>Estimated payout</span>
+                <span style={{ color: '#22c55e', fontSize: 12, fontWeight: 700 }}>
+                  ${payout.min.toLocaleString()}–${payout.max.toLocaleString()}
+                </span>
+              </div>
+              {needsReview.length > 0 && (
+                <div style={{ color: '#fcd34d', fontSize: 10, marginTop: 6 }}>
+                  {needsReview.length} area{needsReview.length !== 1 ? 's' : ''} flagged for adjuster review
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={DIVIDER} />
 
@@ -86,7 +162,12 @@ export default function ReviewScene({ claim, damageData, coverageDecisions = [],
             <button
               className="btn-primary"
               onClick={() => setSubmitted(true)}
-              style={{ width: '100%', borderRadius: 12, padding: '12px', fontSize: 14 }}
+              disabled={coverageDecisions.length === 0}
+              style={{
+                width: '100%', borderRadius: 12, padding: '12px', fontSize: 14,
+                opacity: coverageDecisions.length === 0 ? 0.45 : 1,
+                cursor: coverageDecisions.length === 0 ? 'not-allowed' : 'pointer',
+              }}
             >
               Send Report to Headquarters
             </button>

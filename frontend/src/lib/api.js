@@ -1,39 +1,35 @@
 const BASE = import.meta.env.VITE_API_URL ?? '/api';
 
-export async function ocrDocument(imageBase64, document_type = 'auto') {
-  const res = await fetch(`${BASE}/ocr-document`, {
+// The backend puts the real reason (bad model, upstream 4xx, parse failure) in
+// { error }. Without unwrapping it every failure looked like a bare
+// 'checkCoverage failed', which is what hid a dead model behind sample data.
+async function post(path, body, label) {
+  const res = await fetch(`${BASE}${path}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64, document_type })
+    body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error('ocrDocument failed');
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json())?.error || ''; } catch { /* non-JSON body */ }
+    throw new Error(detail ? `${label}: ${detail}` : `${label} failed (HTTP ${res.status})`);
+  }
   return res.json();
+}
+
+export async function ocrDocument(imageBase64, document_type = 'auto') {
+  return post('/ocr-document', { imageBase64, document_type }, 'Document scan');
 }
 
 export async function analyzeDamage(imageBase64) {
-  const res = await fetch(`${BASE}/analyze-damage`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageBase64 })
-  });
-  if (!res.ok) throw new Error('analyzeDamage failed');
-  return res.json();
+  return post('/analyze-damage', { imageBase64 }, 'Damage analysis');
 }
 
 export async function checkCoverage(damageJson) {
-  const res = await fetch(`${BASE}/check-coverage`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ damageJson })
-  });
-  if (!res.ok) throw new Error('checkCoverage failed');
-  return res.json();
+  return post('/check-coverage', { damageJson }, 'Coverage check');
 }
 
 export async function uploadFrames(frames) {
-  const res = await fetch(`${BASE}/upload-frames`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ frames })
-  });
-  if (!res.ok) throw new Error('uploadFrames failed');
-  return res.json(); // { jobId }
+  return post('/upload-frames', { frames }, 'Frame upload'); // { jobId }
 }
 
 export async function pollJobStatus(jobId) {
@@ -44,12 +40,7 @@ export async function pollJobStatus(jobId) {
 
 // Combined: saves frame to backend/debug-images in background, returns AI damage analysis
 export async function scanFrame({ frameBase64, angle, bucketIndex, scanId }) {
-  const res = await fetch(`${BASE}/scan-frame`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ frameBase64, angle, bucketIndex, scanId }),
-  });
-  if (!res.ok) throw new Error('scanFrame failed');
-  return res.json();
+  return post('/scan-frame', { frameBase64, angle, bucketIndex, scanId }, 'Frame scan');
 }
 
 export function imageToBase64(file) {

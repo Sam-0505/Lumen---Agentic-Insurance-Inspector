@@ -201,11 +201,17 @@ Create `backend/.env`:
 ```
 TAMUS_AI_CHAT_API_KEY=...        # required for all AI routes
 TAMUS_AI_CHAT_API_ENDPOINT=...   # defaults to https://chat-api.tamu.ai
-TAMUS_AI_CHAT_MODEL=...          # defaults to protected.gemini-2.0-flash-lite
+TAMUS_AI_CHAT_MODEL=...          # defaults to protected.gpt-4.1-mini (vision + JSON, ~3s)
 PORT=3001
 ```
 
 The backend uses **TAMU AI Chat** (OpenAI-compatible API), not Anthropic directly. All AI calls go through `backend/lib/tamusChat.js`.
+
+**Model availability:** the TAMU catalog changes — `protected.gemini-2.0-flash-lite` was retired and every AI route began returning `400 {"detail":"Model not found"}`, which silently broke OCR, damage analysis and coverage. List the current catalog with:
+```bash
+curl -H "Authorization: Bearer $TAMUS_AI_CHAT_API_KEY" https://chat-api.tamu.ai/api/models
+```
+Note: Claude models on this endpoint reject `temperature: 0` ("`temperature` may only be set to 1 when thinking is enabled"), so they need a temperature change before they can be swapped in. GPT and Gemini models work with the default `temperature: 0`.
 
 ## Architecture
 
@@ -230,6 +236,15 @@ Scene state lives entirely in `App.jsx` and is passed down as props — no globa
 | `GET /scan-frame` | Serves saved scan frames |
 | `POST /notes` | Saves voiceNotes array to `backend/debug-images/scan-{scanId}/notes.json` |
 | `POST /log` | Logs frontend debug messages to the backend terminal (dev only) |
+| `GET /memory/claims` | Lists all episodic-memory claims (seed + demo-generated) |
+| `GET /memory/search?q=` | Runs episodic retrieval directly — no LLM call, useful for demoing |
+
+### Episodic Memory (`backend/lib/episodicMemory.js`)
+`POST /check-coverage` retrieves the 3 most similar past claims before asking the model, injects them into the prompt as reference context, and saves the newly-decided claim back for future retrieval. The model cites precedent in `adjuster_notes`, and the response carries `retrieved_memory` showing what was matched.
+
+- Store: `backend/data/episodicMemory.json` (gitignored, grows at runtime), seeded on first run from `backend/data/seedClaims.json` — 12 fabricated claims, since no public dataset carries damage-zone → coverage-decision → policy-clause structure.
+- Retrieval: TF-IDF-style scoring in plain JS, no native deps. Delete the store file to reset to clean seed state.
+- Offline test: `node scripts/testEpisodicMemory.js` (no API key needed).
 
 ### AI Prompts (`backend/prompts/`)
 All prompts instruct the model to return **only valid JSON** with no markdown. `parseJsonResponse()` strips any accidental code fences.
