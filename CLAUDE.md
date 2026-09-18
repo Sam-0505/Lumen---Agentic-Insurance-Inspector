@@ -91,11 +91,11 @@ Setup (two-tap car placement):
 → Fallback: if hit-test unavailable, fixed 2m / 4.5m forward placement
 
 Angle-bucket scan (Polycam-style):
-→ 18 buckets at 20° intervals around car center
+→ 12 buckets at 30° intervals around car center (BUCKETS = 12 in ImmersiveScan.jsx)
 → Per XR frame: compute agent azimuth via atan2, determine bucket index
 → Distance gate: if agent < 0.8m from car edge → pause + "Step back"
-→ For each bucket: capture sharpest frame (pixel variance) at ≤ 500ms interval
-→ Progress ring shows 18 arcs, gray → teal as buckets fill
+→ For each bucket: one frame, gated on standoff distance + 500ms cooldown, then the bucket locks
+→ Progress ring shows 12 arcs, gray → teal as buckets fill
 → Annotation: agent pulls trigger → voice note (Vosk WASM STT) recorded
   - Sticky note mesh created at floor hit point inside scan ring
   - Vosk partial results update sticky note text live as user speaks
@@ -103,9 +103,10 @@ Angle-bucket scan (Polycam-style):
 → 12+ buckets filled + trigger → scan complete
 
 Processing (ScanScene.jsx 'generating' stage):
-→ First captured frame sent to /analyze-damage + /check-coverage (AI runs in parallel)
+→ Each bucket frame analyzed via /scan-frame as it is captured, then merged by
+  mergeDamageAnalyses() and sent to /check-coverage
 → Fake "World Labs Marble" progress animation (6 seconds, 0→100%)
-→ car_burnout.spz loaded as splatUrl when both AI + animation complete
+→ final_car.spz loaded as splatUrl when both AI + animation complete
 ```
 
 ### Phase 3 — Annotate
@@ -151,7 +152,7 @@ Agent taps Submit
 │  ┌─────────────────────────────────────────────────┐   │
 │  │  WebSpatial React App                            │   │
 │  │  ├── UI Panels (@webspatial/sdk SpatialDiv)      │   │
-│  │  ├── WebXR Session (@react-three/xr)             │   │
+│  │  ├── WebXR Session (raw WebXR API + Three.js)   │   │
 │  │  ├── Gaussian Splat Renderer (Spark / gsplat.js) │   │
 │  │  ├── Voice Notes (Vosk WASM — offline, on-device) │   │
 │  │  └── State Management (Zustand)                  │   │
@@ -253,7 +254,7 @@ All prompts instruct the model to return **only valid JSON** with no markdown. `
 `coverage_decisions[].color` values (`green`, `red`, `amber`, `gray`) from Claude map directly to `coverageColors.js` → applied to Three.js `MeshStandardMaterial` in `CoverageOverlay.jsx`. GLB mesh names must match `area_name` strings from Claude output (case-insensitive substring match). Use [gltf.report](https://gltf.report) to inspect mesh names when debugging gray wireframes.
 
 ### Required Assets
-- `backend/assets/car_burnout_converted.spz` — Gaussian splat served via `GET /splat`
+- `backend/assets/final_car.spz` — Gaussian splat served via `GET /splat`
 
 ## Key Constraints
 
@@ -269,8 +270,8 @@ All prompts instruct the model to return **only valid JSON** with no markdown. `
 
 ## Spatial Architecture
 - **WebSpatial SDK** — floating 3D UI panels for login/review/annotate. Scene configured as `volume` via `frontend/public/manifest.json` `main_scene` field.
-- **WebXR `immersive-ar`** — scan phase only. Activates color passthrough on Quest 3 / PICO 4. `ImmersiveScan.jsx` manages the full scan state machine: 4-wheel placement (hit-test spheres) → confirm button → scan ring appears → angle-bucket frame capture (5 × 72° buckets) → voice annotation via Vosk WASM.
+- **WebXR `immersive-ar`** — scan phase only. Activates color passthrough on Quest 3 / PICO 4. `ImmersiveScan.jsx` manages the full scan state machine: 4-wheel placement (hit-test spheres) → confirm button → scan ring appears → angle-bucket frame capture (12 × 30° buckets) → voice annotation via Vosk WASM.
 - **Wheel placement flow**: 4 spheres placed by trigger on floor → "Confirm" button appears → tap to lock wheels → `recomputeCarGeometry` → `phase = 'scanning'` → blue ring + sticky notes activate.
 - **Detection in `ScanScene.jsx`**: WebSpatial shell (`/WebSpatial\//.test(userAgent)`) → CameraCapture (PICO path); WebXR AR supported → ImmersiveScan (Quest path); neither → CameraCapture fallback (desktop).
-- **Gaussian splat**: `car_burnout_converted.spz` in `backend/assets/`, served via `GET /splat`. Displayed in `GaussianViewer.jsx` (Spark renderer). Generation is faked with a 6-second animation after AI analysis completes — World Labs API only accepts 4 images which is insufficient for vehicle reconstruction.
-- **Voice notes**: Captured during ImmersiveScan via Web Speech API, stored as `[{text, angle}]`. Passed through `ScanScene.onComplete` → `App.jsx` state → `AnnotateScene` Field Notes sidebar.
+- **Gaussian splat**: `final_car.spz` in `backend/assets/`, served via `GET /splat`. Displayed in `GaussianViewer.jsx` (Spark renderer). Generation is faked with a 6-second animation after AI analysis completes — World Labs API only accepts 4 images which is insufficient for vehicle reconstruction.
+- **Voice notes**: Captured during ImmersiveScan via Vosk WASM (offline, on-device — Web Speech API is unavailable on Quest), stored as `[{text, angle}]`. Passed through `ScanScene.onComplete` → `App.jsx` state → `AnnotateScene` Field Notes sidebar.
