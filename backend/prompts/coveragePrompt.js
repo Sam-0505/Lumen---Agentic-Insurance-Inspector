@@ -20,7 +20,11 @@ Excluded items:
 - Section 7.2: pre-existing damage
 - Section 7.3: mechanical wear and tear
 
-You receive only a damage JSON.
+You receive a damage JSON, and may also receive a list of similar past claims
+(retrieved from episodic memory) with how they were previously decided.
+Use past claims only as consistency reference for tone/reasoning — the fixed
+policy above always takes precedence. If a past claim's decision conflicts
+with the policy text, follow the policy and ignore the precedent.
 For each damaged area, determine coverage status against the fixed sample policy above.
 Return ONLY valid JSON. No preamble, no markdown.
 
@@ -39,7 +43,7 @@ Return ONLY valid JSON. No preamble, no markdown.
   ],
   "total_estimated_payout_usd": { "min": number, "max": number },
   "overall_fraud_risk": "low | medium | high",
-  "adjuster_notes": "string"
+  "adjuster_notes": "string (mention a similar past claim by id if one meaningfully informed a decision, otherwise omit)"
 }
 
 color field: green=covered, red=excluded, amber=partial, gray=requires_review.

@@ -1,0 +1,202 @@
+[
+  {
+    "id": "seed-001",
+    "created_at": "2026-01-14T00:00:00.000Z",
+    "vehicle": "2019 Honda Accord",
+    "damage_type": "Collision - rear bumper",
+    "damage_summary": "Rear-end collision at low speed left rear bumper cover cracked and dented, taillight housing shattered on the right side.",
+    "affected_areas": [
+      { "name": "Rear Bumper Cover", "description": "Cracked OEM plastic bumper cover with visible deformation and paint transfer" },
+      { "name": "Right Taillight Housing", "description": "Shattered lens housing, non-functional" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Rear Bumper Cover", "coverage_status": "covered", "policy_section": "3.2b", "reason": "Collision damage to factory bumper component, fully covered.", "color": "green" },
+      { "area_name": "Right Taillight Housing", "coverage_status": "covered", "policy_section": "3.2b", "reason": "Factory light housing damaged in collision, covered under collision section.", "color": "green" }
+    ],
+    "total_estimated_payout_usd": { "min": 950, "max": 1400 },
+    "outcome_note": "Fully covered fender-bender, both areas approved, payout within estimate range."
+  },
+  {
+    "id": "seed-002",
+    "created_at": "2026-01-22T00:00:00.000Z",
+    "vehicle": "2021 Ford F-150",
+    "damage_type": "Comprehensive - hail",
+    "damage_summary": "Hail storm caused dozens of small dents across hood, roof, and truck bed panels, no cracked glass.",
+    "affected_areas": [
+      { "name": "Hood Assembly", "description": "Multiple shallow hail dents across stamped steel hood" },
+      { "name": "Roof Panel", "description": "Widespread small dents from hail impact" },
+      { "name": "Truck Bed Panel", "description": "Dents along bed rail and tailgate" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Hood Assembly", "coverage_status": "covered", "policy_section": "3.2a", "reason": "Factory structural panel damaged by weather event, covered under comprehensive.", "color": "green" },
+      { "area_name": "Roof Panel", "coverage_status": "covered", "policy_section": "3.2a", "reason": "Factory structural panel, hail damage covered.", "color": "green" },
+      { "area_name": "Truck Bed Panel", "coverage_status": "covered", "policy_section": "3.2a", "reason": "Factory bed panel, hail damage covered.", "color": "green" }
+    ],
+    "total_estimated_payout_usd": { "min": 2200, "max": 3100 },
+    "outcome_note": "Comprehensive hail claim, all factory panels approved for paintless dent repair."
+  },
+  {
+    "id": "seed-003",
+    "created_at": "2026-02-03T00:00:00.000Z",
+    "vehicle": "2018 Toyota Camry",
+    "damage_type": "Glass damage - windshield",
+    "damage_summary": "Rock chip on highway spread into a long crack across the windshield.",
+    "affected_areas": [
+      { "name": "Windshield", "description": "12-inch crack originating from a rock chip, obstructs driver view" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Windshield", "coverage_status": "covered", "policy_section": "3.1b", "reason": "Windshield glass damage explicitly covered under glass section.", "color": "green" }
+    ],
+    "total_estimated_payout_usd": { "min": 280, "max": 420 },
+    "outcome_note": "Straightforward glass claim, approved same day."
+  },
+  {
+    "id": "seed-004",
+    "created_at": "2026-02-11T00:00:00.000Z",
+    "vehicle": "2020 Subaru Outback",
+    "damage_type": "Collision - front end with aftermarket parts",
+    "damage_summary": "Front-end collision damaged the factory hood and headlight, but the vehicle had an aftermarket front bumper and light bar installed prior to the incident.",
+    "affected_areas": [
+      { "name": "Hood Assembly", "description": "Factory hood buckled from frontal impact" },
+      { "name": "Aftermarket Front Bumper", "description": "Non-OEM bumper cracked and partially detached" },
+      { "name": "Aftermarket LED Light Bar", "description": "Roof-mounted aftermarket light bar bent and non-functional" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Hood Assembly", "coverage_status": "covered", "policy_section": "3.2b", "reason": "Factory component damaged in collision, covered.", "color": "green" },
+      { "area_name": "Aftermarket Front Bumper", "coverage_status": "excluded", "policy_section": "7.1", "reason": "Aftermarket modifications are explicitly excluded from coverage.", "color": "red" },
+      { "area_name": "Aftermarket LED Light Bar", "coverage_status": "excluded", "policy_section": "7.1", "reason": "Aftermarket accessory, excluded under modification clause.", "color": "red" }
+    ],
+    "total_estimated_payout_usd": { "min": 600, "max": 900 },
+    "outcome_note": "Mixed decision — factory hood covered, both aftermarket parts denied under 7.1."
+  },
+  {
+    "id": "seed-005",
+    "created_at": "2026-02-19T00:00:00.000Z",
+    "vehicle": "2017 Nissan Altima",
+    "damage_type": "Wear and tear - suspension",
+    "damage_summary": "Owner reported clunking noise; inspection found worn control arm bushings and a leaking strut, consistent with age and mileage rather than a single incident.",
+    "affected_areas": [
+      { "name": "Front Strut Assembly", "description": "Leaking hydraulic fluid, worn seal, consistent with 90k+ miles of use" },
+      { "name": "Control Arm Bushings", "description": "Cracked rubber bushings from age, not impact" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Front Strut Assembly", "coverage_status": "excluded", "policy_section": "7.3", "reason": "Mechanical wear and tear from normal use is excluded.", "color": "red" },
+      { "area_name": "Control Arm Bushings", "coverage_status": "excluded", "policy_section": "7.3", "reason": "Age-related wear, not a covered incident.", "color": "red" }
+    ],
+    "total_estimated_payout_usd": { "min": 0, "max": 0 },
+    "outcome_note": "Claim denied in full — wear and tear, no covered incident identified."
+  },
+  {
+    "id": "seed-006",
+    "created_at": "2026-03-02T00:00:00.000Z",
+    "vehicle": "2022 Chevrolet Silverado",
+    "damage_type": "Collision - side impact with airbag deployment",
+    "damage_summary": "T-bone collision at an intersection deployed side curtain airbags and crumpled the driver door and rear quarter panel.",
+    "affected_areas": [
+      { "name": "Driver Door Panel", "description": "Severely crumpled stamped steel door panel, will not open" },
+      { "name": "Rear Quarter Panel", "description": "Deep crease and paint damage from impact" },
+      { "name": "Side Curtain Airbag System", "description": "Deployed airbags, sensors need replacement" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Driver Door Panel", "coverage_status": "covered", "policy_section": "3.2b", "reason": "Factory door panel damaged in collision, covered.", "color": "green" },
+      { "area_name": "Rear Quarter Panel", "coverage_status": "covered", "policy_section": "3.2b", "reason": "Factory body panel collision damage, covered.", "color": "green" },
+      { "area_name": "Side Curtain Airbag System", "coverage_status": "covered", "policy_section": "3.4a", "reason": "Factory safety system deployment covered explicitly under 3.4a.", "color": "green" }
+    ],
+    "total_estimated_payout_usd": { "min": 6500, "max": 9200 },
+    "outcome_note": "Severe side-impact collision, fully covered including airbag system replacement."
+  },
+  {
+    "id": "seed-007",
+    "created_at": "2026-03-10T00:00:00.000Z",
+    "vehicle": "2016 Jeep Wrangler",
+    "damage_type": "Pre-existing damage dispute",
+    "damage_summary": "Claimant reported a new dent on the rear fender, but rust patterns and paint oxidation around the dent indicated the damage predated the policy start date.",
+    "affected_areas": [
+      { "name": "Rear Fender", "description": "Dent with surrounding rust and oxidized paint edges, inconsistent with a recent impact" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Rear Fender", "coverage_status": "excluded", "policy_section": "7.2", "reason": "Rust and paint oxidation patterns indicate pre-existing damage, excluded.", "color": "red" }
+    ],
+    "total_estimated_payout_usd": { "min": 0, "max": 0 },
+    "outcome_note": "Denied — evidence of pre-existing damage predating the policy."
+  },
+  {
+    "id": "seed-008",
+    "created_at": "2026-03-18T00:00:00.000Z",
+    "vehicle": "2020 Mazda CX-5",
+    "damage_type": "Collision - minor scrape with uncertain cause",
+    "damage_summary": "Shallow scrape on the rear bumper corner, low confidence on cause from a single blurry photo; could be a parking-lot scrape or minor curb contact.",
+    "affected_areas": [
+      { "name": "Rear Bumper Corner", "description": "Shallow scrape, paint transfer visible, low image confidence" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Rear Bumper Corner", "coverage_status": "requires_review", "policy_section": "3.2b", "reason": "Low-confidence image evidence; likely collision damage but needs adjuster photo confirmation before approval.", "color": "gray" }
+    ],
+    "total_estimated_payout_usd": { "min": 150, "max": 400 },
+    "outcome_note": "Flagged for human review due to low-confidence single-angle photo evidence."
+  },
+  {
+    "id": "seed-009",
+    "created_at": "2026-04-01T00:00:00.000Z",
+    "vehicle": "2019 Kia Sorento",
+    "damage_type": "Collision - front bumper partial coverage",
+    "damage_summary": "Front bumper collision damage was compounded by a pre-existing crack from an earlier unreported incident, making only part of the damage attributable to this claim.",
+    "affected_areas": [
+      { "name": "Front Bumper Cover", "description": "New impact crack adjacent to an older, weathered crack with different paint wear" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Front Bumper Cover", "coverage_status": "partial", "policy_section": "3.2b", "reason": "Portion of the damage is a new collision impact (covered); adjacent older crack shows separate wear pattern excluded under pre-existing damage.", "color": "amber" }
+    ],
+    "total_estimated_payout_usd": { "min": 300, "max": 550 },
+    "outcome_note": "Partial approval — payout reduced to reflect only the new impact damage."
+  },
+  {
+    "id": "seed-010",
+    "created_at": "2026-04-09T00:00:00.000Z",
+    "vehicle": "2021 Tesla Model 3",
+    "damage_type": "Collision - front fascia and sensor damage",
+    "damage_summary": "Low-speed parking collision cracked the front fascia and damaged an embedded factory parking sensor.",
+    "affected_areas": [
+      { "name": "Front Fascia", "description": "Cracked factory fascia panel around sensor mount" },
+      { "name": "Front Parking Sensor", "description": "Factory ultrasonic sensor non-responsive after impact" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Front Fascia", "coverage_status": "covered", "policy_section": "3.2b", "reason": "Factory component collision damage, covered.", "color": "green" },
+      { "area_name": "Front Parking Sensor", "coverage_status": "covered", "policy_section": "3.2b", "reason": "Factory sensor damaged in the same collision event, covered.", "color": "green" }
+    ],
+    "total_estimated_payout_usd": { "min": 700, "max": 1100 },
+    "outcome_note": "Fully covered low-speed parking collision including sensor replacement."
+  },
+  {
+    "id": "seed-011",
+    "created_at": "2026-04-20T00:00:00.000Z",
+    "vehicle": "2015 BMW 3 Series",
+    "damage_type": "Theft/comprehensive - broken window",
+    "damage_summary": "Attempted break-in shattered the driver-side window; no other damage found.",
+    "affected_areas": [
+      { "name": "Driver Side Window", "description": "Shattered tempered glass from forced entry attempt" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Driver Side Window", "coverage_status": "covered", "policy_section": "3.1b", "reason": "Window glass damage covered under glass section, incident consistent with comprehensive theft/vandalism.", "color": "green" }
+    ],
+    "total_estimated_payout_usd": { "min": 220, "max": 380 },
+    "outcome_note": "Comprehensive theft-related glass claim, approved."
+  },
+  {
+    "id": "seed-012",
+    "created_at": "2026-05-02T00:00:00.000Z",
+    "vehicle": "2022 GMC Sierra",
+    "damage_type": "Collision - major structural with total loss review",
+    "damage_summary": "High-speed rear-end collision buckled the frame rail and rear cab structure; damage severity approached total loss threshold.",
+    "affected_areas": [
+      { "name": "Frame Rail", "description": "Buckled structural frame rail, severe deformation" },
+      { "name": "Rear Cab Structure", "description": "Structural crumple extending into cab mounting points" }
+    ],
+    "coverage_decisions": [
+      { "area_name": "Frame Rail", "coverage_status": "covered", "policy_section": "3.2a", "reason": "Factory structural component damaged in collision, covered pending total loss evaluation.", "color": "green" },
+      { "area_name": "Rear Cab Structure", "coverage_status": "requires_review", "policy_section": "3.2a", "reason": "Severity approaches total loss threshold; requires adjuster inspection before payout finalization.", "color": "gray" }
+    ],
+    "total_estimated_payout_usd": { "min": 9000, "max": 15000 },
+    "outcome_note": "Covered but flagged for human review given proximity to total-loss threshold."
+  }
+]

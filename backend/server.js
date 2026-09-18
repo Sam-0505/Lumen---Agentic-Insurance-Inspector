@@ -26,6 +26,8 @@ app.use('/notes',              require('./routes/saveNotes'));
 app.use('/api/notes',          require('./routes/saveNotes'));
 app.use('/scan-frames',        require('./routes/listScanFrames'));
 app.use('/api/scan-frames',    require('./routes/listScanFrames'));
+app.use('/memory',             require('./routes/memory'));
+app.use('/api/memory',         require('./routes/memory'));
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
