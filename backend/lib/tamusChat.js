@@ -50,7 +50,7 @@ function extractTextResponse(data) {
   return text;
 }
 
-async function createChatCompletion({ messages, model = getDefaultModel(), temperature = 0 }) {
+async function createChatCompletion({ messages, model = getDefaultModel(), temperature = 0, tools, tool_choice }) {
   const apiKey = getRequiredEnv('TAMUS_AI_CHAT_API_KEY');
   let lastErr;
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -61,7 +61,11 @@ async function createChatCompletion({ messages, model = getDefaultModel(), tempe
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ model, stream: false, temperature, messages }),
+        body: JSON.stringify({
+          model, stream: false, temperature, messages,
+          ...(tools ? { tools } : {}),
+          ...(tool_choice ? { tool_choice } : {}),
+        }),
       });
       const data = await response.json();
       if (!response.ok) {

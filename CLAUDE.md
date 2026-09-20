@@ -231,7 +231,7 @@ Scene state lives entirely in `App.jsx` and is passed down as props — no globa
 | `GET /job-status/:jobId` | Polls reconstruction job; returns `{ status, progress, splatUrl }` |
 | `GET /splat/:jobId` | Serves the `.spz` Gaussian splat file |
 | `POST /analyze-damage` | Sends image to TAMU AI with `damagePrompt`; returns damage JSON |
-| `POST /check-coverage` | Sends damage JSON + policy to TAMU AI with `coveragePrompt`; returns coverage decisions |
+| `POST /check-coverage` | Runs the tool-calling agent loop (`agentLoop.js`) against `coveragePrompt`; returns coverage decisions + `agent_trace` |
 | `POST /ocr-document` | Sends image to TAMU AI with `ocrPrompt`; extracts structured text from policy docs |
 | `POST /save-frame` | Saves a captured frame to `backend/debug-images/` |
 | `GET /scan-frame` | Serves saved scan frames |
@@ -239,13 +239,23 @@ Scene state lives entirely in `App.jsx` and is passed down as props — no globa
 | `POST /log` | Logs frontend debug messages to the backend terminal (dev only) |
 | `GET /memory/claims` | Lists all episodic-memory claims (seed + demo-generated) |
 | `GET /memory/search?q=` | Runs episodic retrieval directly — no LLM call, useful for demoing |
+| `GET /memory/policy` | Structured policy clauses the `search_policy` tool reads |
+| `GET /memory/reviews` | Areas escalated via `flag_for_human_review`, in the order flagged |
 
-### Episodic Memory (`backend/lib/episodicMemory.js`)
-`POST /check-coverage` retrieves the 3 most similar past claims before asking the model, injects them into the prompt as reference context, and saves the newly-decided claim back for future retrieval. The model cites precedent in `adjuster_notes`, and the response carries `retrieved_memory` showing what was matched.
+### Agentic Adjudication (`backend/lib/agentLoop.js`, `coverageTools.js`)
+`POST /check-coverage` does **not** run a fixed retrieve-then-prompt sequence. The model is given three tools and decides per damaged area which to call, how many times, in what order:
 
-- Store: `backend/data/episodicMemory.json` (gitignored, grows at runtime), seeded on first run from `backend/data/seedClaims.json` — 12 fabricated claims, since no public dataset carries damage-zone → coverage-decision → policy-clause structure.
-- Retrieval: TF-IDF-style scoring in plain JS, no native deps. Delete the store file to reset to clean seed state.
-- Offline test: `node scripts/testEpisodicMemory.js` (no API key needed).
+- `search_policy(query)` — ranks `backend/data/samplePolicy.json` clauses by relevance (shared `textSearch.js` ranker), instead of pasting the whole policy into every prompt.
+- `get_similar_past_claims(query)` — wraps `episodicMemory.searchSimilarClaims`; called on demand, not always top-3.
+- `flag_for_human_review(area_name, reason)` — persists to `backend/data/reviewQueue.json` (gitignored) instead of the model guessing on ambiguous evidence.
+
+`agentLoop.js` runs the request/tool-call/tool-result cycle up to 6 iterations (last iteration drops tools to force a final answer), then `checkCoverage.js` writes the decided claim into episodic memory regardless of whether the model called `get_similar_past_claims` for it. The response carries `agent_trace` (every tool call made, in order) and `agent_iterations`.
+
+**Proxy quirk:** replaying an assistant tool-call message requires an explicit string `content` field — this proxy 400s on `content: null` (which the OpenAI message spec allows and which the API's own response omits). Use `content: ''`. Handled in `agentLoop.js`; found by direct probing, see `REVIEW.md`.
+
+- Episodic store: `backend/data/episodicMemory.json` (gitignored, grows at runtime), seeded on first run from `backend/data/seedClaims.json` — 12 fabricated claims, since no public dataset carries damage-zone → coverage-decision → policy-clause structure.
+- Retrieval: TF-IDF-style scoring in plain JS (`textSearch.js`), no native deps. Delete `episodicMemory.json` to reset to clean seed state.
+- Tests: `node scripts/testEpisodicMemory.js` (offline, no API key) and `node scripts/testAgentCoverage.js` (live, needs `TAMUS_AI_CHAT_API_KEY` — runs 3 traced scenarios and asserts the ambiguous one gets escalated, not guessed).
 
 ### AI Prompts (`backend/prompts/`)
 All prompts instruct the model to return **only valid JSON** with no markdown. `parseJsonResponse()` strips any accidental code fences.

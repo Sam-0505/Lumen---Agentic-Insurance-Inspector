@@ -14,17 +14,13 @@
 
 const fs = require('fs');
 const path = require('path');
+const { rankByRelevance } = require('./textSearch');
 
 const DATA_DIR = path.join(__dirname, '../data');
 const SEED_PATH = path.join(DATA_DIR, 'seedClaims.json');
 const STORE_PATH = path.join(DATA_DIR, 'episodicMemory.json');
 
 const MAX_STORED_CLAIMS = 300;
-const STOPWORDS = new Set([
-  'the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'on', 'with', 'for',
-  'is', 'was', 'were', 'this', 'that', 'from', 'at', 'by', 'as', 'it',
-  'be', 'are', 'has', 'have', 'had', 'not', 'no', 'but',
-]);
 
 function ensureStoreExists() {
   if (fs.existsSync(STORE_PATH)) return;
@@ -46,15 +42,6 @@ function persistStore(claims) {
   fs.writeFileSync(STORE_PATH, JSON.stringify(trimmed, null, 2));
 }
 
-function tokenize(text) {
-  if (!text) return [];
-  return String(text)
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((tok) => tok.length > 2 && !STOPWORDS.has(tok));
-}
-
 function getSearchableText(claim) {
   const areaText = (claim.affected_areas || [])
     .map((a) => `${a.name || ''} ${a.description || ''}`)
@@ -68,58 +55,12 @@ function getSearchableText(claim) {
   ].filter(Boolean).join(' ');
 }
 
-function termFrequencies(tokens) {
-  const tf = {};
-  for (const tok of tokens) tf[tok] = (tf[tok] || 0) + 1;
-  return tf;
-}
-
-function buildIdf(documents) {
-  const docCount = documents.length || 1;
-  const df = {};
-  for (const doc of documents) {
-    const seen = new Set(doc);
-    for (const tok of seen) df[tok] = (df[tok] || 0) + 1;
-  }
-  const idf = {};
-  for (const tok of Object.keys(df)) {
-    idf[tok] = Math.log(1 + docCount / df[tok]);
-  }
-  return idf;
-}
-
 /**
  * Returns the top N past claims most textually similar to `queryText`.
  * Each result includes a `score` (higher = more relevant) and `matchedTerms`.
  */
 function searchSimilarClaims(queryText, topN = 3) {
-  const claims = loadStore();
-  if (claims.length === 0) return [];
-
-  const claimTokens = claims.map((c) => tokenize(getSearchableText(c)));
-  const idf = buildIdf(claimTokens);
-  const queryTokens = tokenize(queryText);
-  if (queryTokens.length === 0) return [];
-  const queryTf = termFrequencies(queryTokens);
-
-  const scored = claims.map((claim, i) => {
-    const tf = termFrequencies(claimTokens[i]);
-    let score = 0;
-    const matchedTerms = [];
-    for (const tok of Object.keys(queryTf)) {
-      if (tf[tok]) {
-        score += (1 + Math.log(tf[tok])) * (idf[tok] || 0);
-        matchedTerms.push(tok);
-      }
-    }
-    return { claim, score, matchedTerms };
-  });
-
-  return scored
-    .filter((s) => s.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topN)
-    .map((s) => ({ ...s.claim, score: Math.round(s.score * 100) / 100, matchedTerms: s.matchedTerms }));
+  return rankByRelevance(queryText, loadStore(), getSearchableText, topN);
 }
 
 /**

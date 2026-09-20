@@ -5,15 +5,48 @@
   "coverage_type": "Comprehensive + Collision",
   "status": "active",
   "deductible_usd": 500,
-  "covered_items": [
-    { "item": "factory structural components", "section": "3.2a" },
-    { "item": "factory safety systems including airbags", "section": "3.4a" },
-    { "item": "glass — windshield windows mirrors", "section": "3.1b" },
-    { "item": "collision damage to factory components", "section": "3.2b" }
-  ],
-  "excluded_items": [
-    { "item": "aftermarket modifications", "section": "7.1" },
-    { "item": "pre-existing damage", "section": "7.2" },
-    { "item": "mechanical wear and tear", "section": "7.3" }
+  "clauses": [
+    {
+      "section": "3.1b",
+      "category": "covered",
+      "title": "Glass",
+      "text": "Glass, windshield, windows, and mirrors are covered."
+    },
+    {
+      "section": "3.2a",
+      "category": "covered",
+      "title": "Factory structural components",
+      "text": "Factory structural components are covered, including panels, frame rails, and body structure."
+    },
+    {
+      "section": "3.2b",
+      "category": "covered",
+      "title": "Collision damage to factory components",
+      "text": "Collision damage to factory components is covered."
+    },
+    {
+      "section": "3.4a",
+      "category": "covered",
+      "title": "Factory safety systems",
+      "text": "Factory safety systems are covered, including airbags and their sensors."
+    },
+    {
+      "section": "7.1",
+      "category": "excluded",
+      "title": "Aftermarket modifications",
+      "text": "Aftermarket modifications and non-factory parts are excluded from coverage, including aftermarket bumpers, spoilers, light bars, and exhaust components."
+    },
+    {
+      "section": "7.2",
+      "category": "excluded",
+      "title": "Pre-existing damage",
+      "text": "Damage present before this incident or before the policy's coverage period is excluded. Evidence such as rust, oxidized paint edges, or weathering around damage indicates a pre-existing condition."
+    },
+    {
+      "section": "7.3",
+      "category": "excluded",
+      "title": "Mechanical wear and tear",
+      "text": "Mechanical wear and tear from normal use over time, not caused by a specific incident, is excluded. This includes worn suspension bushings, leaking seals from age, and similar gradual failures."
+    }
   ]
 }

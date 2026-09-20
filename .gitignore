@@ -4,3 +4,4 @@ dist/
 .DS_Store
 debug-images/
 backend/data/episodicMemory.json
+backend/data/reviewQueue.json

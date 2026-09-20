@@ -47,7 +47,7 @@ Headsets need the browser's camera permission granted, and microphone permission
 - [Supported devices](#supported-devices)
 - [What makes this technically interesting](#what-makes-this-technically-interesting)
 - [AI pipeline architecture](#ai-pipeline-architecture)
-- [Episodic memory](#episodic-memory)
+- [Agentic adjudication](#agentic-adjudication)
 - [Spatial capture architecture](#spatial-capture-architecture)
 - [Tech stack](#tech-stack)
 - [Repository layout](#repository-layout)
@@ -65,7 +65,7 @@ Headsets need the browser's camera permission granted, and microphone permission
 Three problems had to be solved that don't show up in a typical web app:
 
 1. **A single photo is not enough evidence.** One camera angle produces unreliable damage assessments. The scan captures 12 angle buckets around the vehicle, analyses each independently, then deterministically reconciles them — so a dent seen from three angles is one finding, not three.
-2. **An LLM deciding insurance coverage in isolation is inconsistent.** The same damage can get different verdicts across runs. Coverage decisions are grounded in retrieved precedent from past claims, so the model reasons against how comparable damage was actually adjudicated before.
+2. **Not every damaged area deserves the same amount of investigation.** A clear windshield crack and a scratch with ambiguous rust in it are not the same problem, but a fixed pipeline treats every input identically — same retrieval, same context, one-shot commitment. The adjudication stage is a tool-calling agent instead: it decides per area whether it needs a policy lookup, a precedent check, both, or neither — and escalates to a human instead of guessing when the evidence genuinely doesn't support a confident verdict.
 3. **Headset browsers are a hostile runtime.** No Web Speech API on Quest, `SharedArrayBuffer` requires specific COOP/COEP headers, `getUserMedia` needs HTTPS with a self-signed cert, and WebXR reference-space mismatches silently put geometry in the wrong place.
 
 ---
@@ -100,15 +100,16 @@ The claim flows through five stages. Each stage has a single responsibility and 
  └────────────────────────────┬────────────────────────────────────────┘
                               ▼
  ┌─────────────────────────────────────────────────────────────────────┐
- │ 4. RETRIEVAL + ADJUDICATION                                         │
- │    a. Build query from damage type + affected area descriptions     │
- │    b. Retrieve top-3 similar past claims from episodic memory       │
- │    c. Inject as reference context alongside policy text             │
- │    d. Model returns per-area verdicts:                              │
- │         covered │ excluded │ partial │ requires_review              │
- │       + policy section cited, confidence, payout range              │
- │    Policy text always wins on conflict — precedent informs          │
- │    reasoning, it does not create coverage rules.                    │
+ │ 4. AGENTIC ADJUDICATION              (tool-calling loop)            │
+ │    Model receives the merged damage JSON and three tools:           │
+ │      search_policy(query)             → relevant policy clauses     │
+ │      get_similar_past_claims(query)   → precedent, if it wants any  │
+ │      flag_for_human_review(area, why) → escalate instead of guess   │
+ │    The model — not this code — decides which tools, how many        │
+ │    times, in what order, per damaged area. Loops until it returns   │
+ │    final verdicts: covered │ excluded │ partial │ requires_review   │
+ │    + policy section cited, confidence, payout range.                │
+ │    Policy text always wins on conflict with retrieved precedent.    │
  └────────────────────────────┬────────────────────────────────────────┘
                               ▼
  ┌─────────────────────────────────────────────────────────────────────┐
@@ -122,62 +123,83 @@ The claim flows through five stages. Each stage has a single responsibility and 
 
 **Design decision — why stage 3 is not an LLM.** Reconciling 12 overlapping observations is a deduplication problem with deterministic rules (same area name → one finding, severity = max). Handing it to a model would add latency, cost, and non-determinism to a step that has an exactly correct answer. Models are used for perception and judgement; code is used for bookkeeping.
 
+**Design decision — why stage 4 *is* an LLM control loop.** Unlike reconciliation, adjudication genuinely varies in how much investigation it needs, and that need isn't knowable in advance from the JSON shape alone — it depends on the actual content of the damage description. A fixed retrieve-then-prompt sequence has to over-fetch for every request to cover the hard cases, or under-investigate the hard cases to stay cheap on the easy ones. Letting the model call tools on demand means effort matches the actual ambiguity of each area — see [Agentic adjudication](#agentic-adjudication) for what this looks like in practice, with real captured traces.
+
 ---
 
-## Episodic memory
+## Agentic adjudication
 
-Coverage decisions are grounded in past claims rather than made from scratch each time.
-
-**Retrieval → adjudicate → write back:**
+`checkCoverage.js` doesn't run a fixed retrieve-then-prompt sequence. The model gets three tools and an iteration loop (`agentLoop.js`), and decides for itself — per damaged area — what it needs to look up before it's willing to commit to a verdict.
 
 ```
-new claim ──▶ build query from damage type + area descriptions
-          ──▶ TF-IDF-style scoring across stored claims
-          ──▶ top-3 precedents injected into the prompt
-          ──▶ verdict cites precedent in adjuster_notes
-          ──▶ decided claim written back for future retrieval
+search_policy(query)              → relevant policy clauses, not the whole document pasted in
+get_similar_past_claims(query)    → precedent, if the model wants any — not always top-3
+flag_for_human_review(area, why)  → escalate instead of guessing on genuinely ambiguous evidence
 ```
 
-Real output from the pipeline (hail damage on a factory hood):
+Three real captured traces (`backend/scripts/testAgentCoverage.js`) show the effort scaling with actual ambiguity, not with a fixed step count:
+
+| Case | Tool calls | What happened |
+|---|---|---|
+| Clear windshield crack | 1 | One policy lookup (`§3.1b`), done — no wasted retrieval |
+| Collision + aftermarket part + rusty scratch | 6 | Investigated all three areas independently: policy lookup **and** precedent check per area, landing on 3 different verdicts (`covered` / `excluded` / `excluded`) |
+| Single, extremely blurry photo | 1 | Called `flag_for_human_review` instead of guessing — no coverage verdict at all |
+
+The third case is the one that matters most in this domain: a fixed pipeline would have been forced to output *some* verdict on unusable evidence. Recognizing "I don't have enough information" and escalating instead of fabricating confidence is the actual point of giving the model tools rather than a bigger prompt.
+
+Real trace and output from the mixed case:
 
 ```json
 {
-  "coverage_decisions": [{
-    "area_name": "Hood Assembly",
-    "coverage_status": "green",
-    "policy_section": "3.2a",
-    "reason": "Hail damage to factory structural steel hood is covered under
-               comprehensive coverage as per policy section 3.2a.",
-    "estimated_payout_usd": { "min": 500, "max": 1500 }
-  }],
-  "adjuster_notes": "Consistent with past claim seed-002 where hail damage to
-                     factory hood was covered under section 3.2a.",
-  "retrieved_memory": [
-    { "id": "seed-002", "damage_type": "Comprehensive - hail",   "score": 27.15 },
-    { "id": "seed-004", "damage_type": "Collision - aftermarket", "score": 6.48 },
-    { "id": "seed-003", "damage_type": "Glass damage - windshield", "score": 2.98 }
-  ]
+  "coverage_decisions": [
+    { "area_name": "Rear Bumper Cover",    "coverage_status": "covered",  "policy_section": "3.2b" },
+    { "area_name": "Aftermarket Exhaust Tip", "coverage_status": "excluded", "policy_section": "7.1" },
+    { "area_name": "Rear Quarter Panel",   "coverage_status": "excluded", "policy_section": "7.2" }
+  ],
+  "adjuster_notes": "Policy sections 3.2b, 7.1, and 7.2 were referenced for collision
+                     damage, aftermarket parts exclusion, and pre-existing damage
+                     exclusion respectively. Past claims seed-001 and seed-004
+                     informed the decisions...",
+  "agent_trace": [
+    { "tool": "search_policy", "arguments": { "query": "rear bumper collision damage" } },
+    { "tool": "search_policy", "arguments": { "query": "aftermarket parts coverage" } },
+    { "tool": "search_policy", "arguments": { "query": "surface rust damage" } },
+    { "tool": "get_similar_past_claims", "arguments": { "query": "rear bumper collision damage" } },
+    { "tool": "get_similar_past_claims", "arguments": { "query": "aftermarket exhaust tip damage" } },
+    { "tool": "get_similar_past_claims", "arguments": { "query": "surface rust on scratched panel" } }
+  ],
+  "agent_iterations": 2
 }
 ```
 
-`retrieved_memory` is returned to the client, so the UI can show *why* a decision was reached — the precedent is auditable, not hidden in a prompt.
+`agent_trace` is returned to the client — the full decision path is auditable, not hidden inside a single prompt.
 
-### Implementation choices
+### Episodic memory
+
+`get_similar_past_claims` is backed by the same TF-IDF-style retrieval used by `search_policy` (`lib/textSearch.js` — one ranking primitive, two tools). Every decided claim is written back afterward regardless of whether the model called the tool for it, so memory grows from real use — run two similar claims and the second can cite the first.
 
 | Decision | Rationale |
 |---|---|
-| **TF-IDF-style scoring in plain JS** | At seed scale (dozens of claims) term-frequency weighted by inverse document frequency is sufficient. Embeddings would add a network round trip per claim and an availability dependency for a ranking problem this size. |
+| **Tools, not a fixed retrieval step** | The old pipeline always fetched top-3 precedent and always pasted the full policy into every prompt. The model now decides per area whether either is worth calling — see the trace table above. |
+| **TF-IDF-style scoring in plain JS** | At seed scale (dozens of claims, 7 policy clauses) term-frequency weighted by inverse document frequency is sufficient. Embeddings would add a network round trip per call and an availability dependency for a ranking problem this size. |
 | **JSON file store, no SQLite** | `better-sqlite3` is a native module needing a compile toolchain. This repo has to run on judges' laptops on demo day; a dependency that can fail to build is a dependency that will. |
-| **Write-back on decision** | Memory grows from real use. Run two similar claims and the second cites the first. |
+| **Escalation is a real side effect** | `flag_for_human_review` persists to `backend/data/reviewQueue.json`, not just a string embedded in the response — a flagged area is actually retrievable by an adjuster afterward. |
 | **Seed data is fabricated** | Public insurance datasets are either images without decisions, or actuarial data without damage descriptions — none carry the damage-zone → coverage-decision → policy-clause structure this reasons over. |
 
-### Inspecting memory
+### Inspecting it
 
 ```bash
-curl localhost:3001/memory/claims                          # list all episodes
+curl localhost:3001/memory/claims                          # all episodes, seed + demo-generated
 curl "localhost:3001/memory/search?q=windshield%20crack"   # retrieval only, no LLM call
-node backend/scripts/testEpisodicMemory.js                 # offline test, no API key needed
+curl localhost:3001/memory/policy                           # structured clauses search_policy reads
+curl localhost:3001/memory/reviews                          # areas flagged for human review
+node backend/scripts/testEpisodicMemory.js                  # offline retrieval test, no API key needed
+node backend/scripts/testAgentCoverage.js                   # live agent test, needs TAMUS_AI_CHAT_API_KEY
 ```
+
+### A known proxy quirk, found by direct probing
+
+Replaying an assistant tool-call message back into the conversation (required for round 2+ of the loop) needs an explicit string `content` field. The provider's own response omits `content` entirely when a message is tool-calls-only, and replaying that back with `content: null` — which the OpenAI message spec technically allows — gets rejected by this proxy's stricter schema (`Input should be a valid string`). `content: ''` satisfies both. `agentLoop.js` handles this; it's the kind of thing that silently breaks a tool loop on the second round if you don't hit it in testing.
 
 The store lives at `backend/data/episodicMemory.json` (gitignored). Delete it to reset to clean seed state.
 
@@ -233,19 +255,26 @@ Both scan paths converge on an identical `onCapture(frames, notes, mergeDamageAn
 backend/
   server.js                      Express app, dual /x and /api/x route mounting
   lib/
-    tamusChat.js                 LLM client — retry w/ backoff, JSON fence stripping
-    episodicMemory.js            Retrieval, scoring, write-back, prompt formatting
+    tamusChat.js                 LLM client — retry w/ backoff, tool-calling passthrough
+    agentLoop.js                 Generic tool-calling loop: model decides, this executes
+    coverageTools.js             search_policy / get_similar_past_claims / flag_for_human_review
+    episodicMemory.js            Claim store, write-back
+    textSearch.js                Shared TF-IDF-style ranking (used by both tools above)
   routes/
     scanFrame.js                 Combined: saves frame + returns damage analysis
     analyzeDamage.js             Image → damage JSON
-    checkCoverage.js             Damage + retrieved precedent → coverage decisions
-    ocrDocument.js               Document image → structured fields
-    memory.js                    Memory inspection endpoints
+    checkCoverage.js             Runs the agent loop → coverage decisions + agent_trace
+    ocrDocument.js                Document image → structured fields
+    memory.js                    Memory / policy / review-queue inspection endpoints
   prompts/                       System prompts — all enforce strict JSON output
   data/
     seedClaims.json              12 fabricated precedent claims (tracked)
-    episodicMemory.json          Live store, seeded from above (gitignored)
-  scripts/testEpisodicMemory.js  Offline retrieval test, no API key required
+    samplePolicy.json            Structured policy clauses search_policy reads (tracked)
+    episodicMemory.json          Live claim store, seeded from seedClaims.json (gitignored)
+    reviewQueue.json             Areas escalated via flag_for_human_review (gitignored)
+  scripts/
+    testEpisodicMemory.js        Offline retrieval test, no API key required
+    testAgentCoverage.js         Live agent test — 3 traced scenarios, needs an API key
 
 frontend/src/
   scenes/
@@ -273,9 +302,11 @@ frontend/src/
 | `POST /ocr-document` | Document image → structured fields (licence / registration) |
 | `POST /scan-frame` | Saves frame in background, returns damage analysis (one call, not two) |
 | `POST /analyze-damage` | Image → damage JSON |
-| `POST /check-coverage` | Damage + retrieved precedent → coverage decisions + `retrieved_memory` |
-| `GET /memory/claims` | List all episodic-memory claims |
-| `GET /memory/search?q=` | Retrieval only — no LLM call, useful for demoing |
+| `POST /check-coverage` | Runs the tool-calling agent loop → coverage decisions + `agent_trace` |
+| `GET /memory/claims` | List all episodic-memory claims (seed + demo-generated) |
+| `GET /memory/search?q=` | Episodic retrieval only — no LLM call, useful for demoing |
+| `GET /memory/policy` | Structured policy clauses the `search_policy` tool reads |
+| `GET /memory/reviews` | Areas the agent escalated via `flag_for_human_review` |
 | `GET /splat` | Serves the Gaussian splat asset |
 | `POST /notes` | Persists voice notes for a scan |
 | `GET /scan-frames/latest` | Captured frames for the review grid |
@@ -292,16 +323,16 @@ Stated plainly, because a demo that overclaims is worse than one that doesn't.
 **Real and working end to end:**
 - Vision OCR of documents — verified extracting name, licence number, address, DOB and expiry from a test licence
 - Multi-angle damage analysis with deterministic reconciliation across 12 buckets
-- Policy adjudication with episodic retrieval and precedent citation
+- Agentic tool-calling adjudication — real, traced tool calls against policy search, episodic precedent, and human-review escalation
 - Offline on-device speech-to-text via Vosk WASM
 - WebXR passthrough capture with hit-test placement on real Quest 3 / PICO 4 hardware
 - Gaussian splat rendering in WebXR
 
 **Simulated:**
 - **Gaussian splat generation.** The rendered splat is a pre-built `final_car.spz` asset, not reconstructed from the captured frames. The World Labs Marble API accepts only 4 input images, which is far too few for vehicle reconstruction. `POST /upload-frames` and `GET /job-status/:jobId` are stubs that return a mock job ID and a completed status.
-- **Policy record.** Adjudication runs against a fixed sample policy embedded in the coverage prompt rather than a policy database lookup.
+- **Policy record.** `search_policy` retrieves from one fixed sample policy (`backend/data/samplePolicy.json`), not a per-claimant policy database — the retrieval mechanism is real, the data behind it is a single fabricated policy.
 
-**What production would need:** a photogrammetric reconstruction pipeline (e.g. InstantSplat on a cloud GPU) in place of the pre-built asset, a real policy datastore behind a retrieval tool, and human-in-the-loop review on every `requires_review` verdict before payout.
+**What production would need:** a photogrammetric reconstruction pipeline (e.g. InstantSplat on a cloud GPU) in place of the pre-built asset, `search_policy` backed by a real per-claimant policy datastore instead of one fixed document, and human-in-the-loop review actually wired to the `flag_for_human_review` queue rather than just recorded.
 
 ---
 
