@@ -1,6 +1,6 @@
 # Lumen (Coverage Ghost)
 
-**A spatial insurance claims assistant that runs entirely in a headset browser — no install, no native app.**
+**A spatial insurance claims assistant that runs entirely in a headset browser (or phone) — no install, no native app.**
 
 An adjuster puts on a Meta Quest 3 or PICO 4, opens a URL, and walks around a damaged vehicle. The app captures the vehicle from 12 angles in a WebXR passthrough session, runs each frame through a vision model, reconciles the per-angle findings into a single damage assessment, adjudicates it against policy text, and produces a colour-coded coverage report — with voice annotations transcribed on-device.
 
