@@ -134,19 +134,7 @@ Real output from the pipeline (hail damage on a factory hood):
 | **TF-IDF-style scoring in plain JS** | At seed scale (dozens of claims) term-frequency weighted by inverse document frequency is sufficient. Embeddings would add a network round trip per claim and an availability dependency for a ranking problem this size. |
 | **JSON file store, no SQLite** | `better-sqlite3` is a native module needing a compile toolchain. This repo has to run on judges' laptops on demo day; a dependency that can fail to build is a dependency that will. |
 | **Write-back on decision** | Memory grows from real use. Run two similar claims and the second cites the first. |
-| **Seed data is fabricated** | No public dataset carries the shape this needs (see below). |
-
-### Why the seed data is hand-written
-
-Public insurance datasets were evaluated and none fit:
-
-| Dataset | Why it doesn't work |
-|---|---|
-| Kaggle *Car Damage* / *Damage Severity* | Images only — no claim text, no coverage decisions |
-| AgentDS-Insurance (HuggingFace) | Has claim descriptions, but built for fraud/complexity prediction — no policy-clause references or coverage outcomes |
-| Motor insurance portfolio (Open ICPSR), R `insuranceData` | Actuarial/premium data — no damage descriptions at all |
-
-None carry the **damage-zone → coverage-decision → policy-clause** structure this pipeline reasons over. The 12 seed claims in `backend/data/seedClaims.json` are fabricated but use real industry vocabulary (claim types and severity labels borrowed from the datasets above) and cover the realistic spread: collision, hail, glass, aftermarket exclusion, wear-and-tear exclusion, pre-existing-damage denial, partial coverage, low-confidence review, and a near-total-loss escalation.
+| **Seed data is fabricated** | No public dataset carries the shape this needs (see below). |s
 
 ### Inspecting memory
 
