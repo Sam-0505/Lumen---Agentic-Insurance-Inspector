@@ -8,8 +8,43 @@ Built for **XRCC 2026** (PICO Tech Track — WebSpatial).
 
 ---
 
+## 🔗 Live demo
+
+### **[lumen-iwyh.onrender.com](https://lumen-iwyh.onrender.com/)**
+
+Opens in any browser — no install, no sign-up. Backend API: [coverageghost.onrender.com](https://coverageghost.onrender.com/health)
+
+> Both services are on Render's free tier, so the **first request after idle takes ~30–60s** to cold-start. Subsequent requests are fast.
+
+**Try the AI without a headset** — these run in a normal browser:
+
+| Try this | Where |
+|---|---|
+| Full scan flow, touch-driven | Open the link on a **phone** — same 12-bucket capture logic as the headset |
+| Episodic memory retrieval (no LLM call) | [`/memory/search?q=windshield crack`](https://coverageghost.onrender.com/memory/search?q=windshield%20crack) |
+| The 12 seeded precedent claims | [`/memory/claims`](https://coverageghost.onrender.com/memory/claims) |
+
+---
+
+## Supported devices
+
+| Device | Live camera | WebXR `immersive-ar` | Experience |
+|---|---|---|---|
+| **Meta Quest 3** *(primary target)* | ✅ | ✅ | Full passthrough scan — walk around the vehicle, voice-annotate in 3D |
+| **PICO 4** *(hackathon target)* | ✅ | ✅ | Full passthrough scan + WebSpatial panels in the native shell |
+| **Phone** (iOS / Android) | ✅ | ❌ | Complete flow, touch-driven — same bucket logic, no headset needed |
+| **Desktop browser** | ✅ | ❌ | Document scan, damage analysis and coverage report via webcam |
+| PICO emulator | ❌ (no cameras) | ❌ | UI and WebSpatial panels only — capture needs real hardware |
+| Apple Vision Pro | ❌ | — | **Not supported** — see [why](#device-targeting) |
+
+Headsets need the browser's camera permission granted, and microphone permission for voice notes.
+
+---
+
 ## Table of Contents
 
+- [Live demo](#-live-demo)
+- [Supported devices](#supported-devices)
 - [What makes this technically interesting](#what-makes-this-technically-interesting)
 - [AI pipeline architecture](#ai-pipeline-architecture)
 - [Episodic memory](#episodic-memory)
@@ -168,13 +203,15 @@ Vosk requires `SharedArrayBuffer`, which requires cross-origin isolation — hen
 
 ### Device targeting
 
-| Device | Live camera | WebXR `immersive-ar` | Path taken |
-|---|---|---|---|
-| Meta Quest 3 | ✅ | ✅ | `ImmersiveScan` — full passthrough scan |
-| PICO 4 | ✅ | ✅ | `ImmersiveScan`, WebSpatial panels in native shell |
-| PICO emulator | ❌ (no cameras) | ❌ | `CameraCapture` fallback |
-| Phone / desktop | ✅ | ❌ | `MobileScan` — same bucket logic, touch-driven |
-| Apple Vision Pro | ❌ | — | **Dropped** (see below) |
+`ScanScene.jsx` picks the capture path at runtime rather than branching on a device allow-list:
+
+| Detected | Path | Capture method |
+|---|---|---|
+| WebSpatial shell (`/WebSpatial\//` in UA) or Vision Pro | Skips live capture | Proceeds straight to report generation — no camera feed available |
+| `immersive-ar` supported | `ImmersiveScan` | WebXR passthrough: hit-test placement, azimuth from head pose |
+| Everything else (phone, desktop) | `MobileScan` | Same 12 buckets, azimuth from `deviceorientation` (`lib/heading.js`) |
+
+Both scan paths converge on an identical `onCapture(frames, notes, mergeDamageAnalyses(...))` contract, so everything downstream — reconciliation, retrieval, adjudication — is the same regardless of how the frames were captured. The phone path isn't a cut-down demo mode; it's the same pipeline with a different input surface, which is also what makes the AI testable without headset hardware.
 
 **Why Vision Pro was dropped:** visionOS Safari blocks live camera feed rendering in web pages and restricts main-camera access to enterprise native apps. The entire capture flow depends on a live feed, so the target moved to Quest/PICO, whose Chromium-based browsers support `getUserMedia` with live preview.
 
@@ -295,6 +332,8 @@ The fix removed every fabricated fallback: unread fields render `—`, failed sc
 ---
 
 ## Setup
+
+> Only needed to run or modify it locally — the [live demo](#-live-demo) needs none of this.
 
 ### Prerequisites
 
