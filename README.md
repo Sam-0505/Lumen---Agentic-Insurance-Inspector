@@ -169,7 +169,7 @@ Real output from the pipeline (hail damage on a factory hood):
 | **TF-IDF-style scoring in plain JS** | At seed scale (dozens of claims) term-frequency weighted by inverse document frequency is sufficient. Embeddings would add a network round trip per claim and an availability dependency for a ranking problem this size. |
 | **JSON file store, no SQLite** | `better-sqlite3` is a native module needing a compile toolchain. This repo has to run on judges' laptops on demo day; a dependency that can fail to build is a dependency that will. |
 | **Write-back on decision** | Memory grows from real use. Run two similar claims and the second cites the first. |
-| **Seed data is fabricated** | No public dataset carries the shape this needs (see below). |s
+| **Seed data is fabricated** | Public insurance datasets are either images without decisions, or actuarial data without damage descriptions — none carry the damage-zone → coverage-decision → policy-clause structure this reasons over. |
 
 ### Inspecting memory
 
